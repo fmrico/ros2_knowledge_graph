@@ -105,12 +105,16 @@ GraphNode::update_callback(const ros2_knowledge_graph_msgs::msg::GraphUpdate::Sh
             }
 
           case ros2_knowledge_graph_msgs::msg::GraphUpdate::REMOVE:
-            graph_.remove_node(msg->node_id);
+          {
+            Node node;
+            node.from_string(object_data);
+            graph_.remove_node(node.name);
             RCLCPP_INFO(node_->get_logger(), "[%lf]\t(%s)\tREMOVE NODE %s",
               rclcpp::Time(ts).seconds(),
               msg->node_id.c_str(), object_data.c_str());
             last_ts_ = ts;
             break;
+          }
         }
       }
       break;

@@ -26,7 +26,13 @@
 
 TEST(ros2_knowledge_graph, graph_operations)
 {
-  /*ros2_knowledge_graph::Graph graph;
+  ros2_knowledge_graph::Graph graph;
+
+  graph.add_node(ros2_knowledge_graph::Node{"paco", "person"});
+  ASSERT_TRUE(graph.exist_node("paco"));
+  graph.remove_node("paco");
+  ASSERT_FALSE(graph.exist_node("paco"));
+  ASSERT_EQ(graph.get_num_nodes(), 0);
 
   ASSERT_FALSE(graph.exist_node("r2d2"));
   graph.add_node(ros2_knowledge_graph::Node{"r2d2", "robot"});
@@ -74,7 +80,7 @@ TEST(ros2_knowledge_graph, graph_operations)
   graph2.from_string(graph_str);
   std::string graph2_str = graph2.to_string();
 
-  ASSERT_EQ(graph_str, graph2_str);*/
+  ASSERT_EQ(graph_str, graph2_str);
 }
 
 int main(int argc, char ** argv)

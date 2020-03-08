@@ -13,9 +13,6 @@
 // limitations under the License.
 
 
-#include <tf2/convert.h>
-#include <tf2_geometry_msgs/tf2_geometry_msgs.h>
-
 #include <vector>
 #include <list>
 #include <random>
@@ -24,7 +21,7 @@
 
 #include "rclcpp/rclcpp.hpp"
 
-#include "ros2_knowledge_graph/TypedGraphNode.hpp"
+#include "ros2_knowledge_graph/GraphNode.hpp"
 
 std::vector<std::string> tokenize(const std::string & text)
 {
@@ -44,16 +41,20 @@ class GraphTerminal
 {
 public:
   explicit GraphTerminal(const std::string & id)
+  : graph_id_(id)
   {
-    graph_ = std::make_shared<ros2_knowledge_graph::TypedGraphNode>(id);
+    
   }
 
   void run_console()
   {
+    graph_ = std::make_shared<ros2_knowledge_graph::GraphNode>(graph_id_);
+    graph_->start();
+    
     std::string line;
     bool success = true;
 
-    std::cout << "BICA Graph console. Type \"quit\" to finish" << std::endl;
+    std::cout << "ROS2 Knowledge Graph console. Type \"quit\" to finish" << std::endl;
     std::cout << "> ";
     while (std::getline(std::cin, line)) {
       if (line == "quit") {
@@ -82,27 +83,7 @@ public:
     std::cout << "total string edges: " << graph_->get_num_edges() << std::endl;
     for (const auto & pair : graph_->get_edges()) {
       for (const auto & edge : pair.second) {
-        if (edge.type != "tf") {
           std::cout << "\t" << edge.to_string() << std::endl;
-        } else {
-          auto tf_edge = graph_->get_tf_edge(edge.source, edge.target);
-
-          if (tf_edge.has_value()) {
-            tf2::Stamped<tf2::Transform> tf;
-            tf2::convert(tf_edge.value().tf_, tf);
-
-            double roll, pitch, yaw;
-            tf2::Matrix3x3(tf.getRotation()).getRPY(roll, pitch, yaw);
-
-            std::cout << "\tedge::" << edge.source << "->" << edge.target + "::(" <<
-              tf.getOrigin().x() << ", " << tf.getOrigin().y() << ", " <<
-              tf.getOrigin().z() << ") [" << roll << ", " << pitch << ", " <<
-              yaw << "]::tf" << std::endl;
-
-          } else {
-            std::cout << "\t" << edge.to_string() << std::endl;
-          }
-        }
       }
     }
   }
@@ -129,47 +110,17 @@ public:
           std::cout << "\tUsage: \n\t\tadd node id type" << std::endl;
         } else {
           graph_->add_node(ros2_knowledge_graph::Node{command[2], command[3]});
+          std::cerr << "Created" << std::endl;
         }
       } else if (command[1] == "edge") {
-        if ((command.size() == 2) ||
-          ((command.size() > 2) &&
-          ((command[2] != "symbolic") && (command[2] != "tf"))))
-        {
-          std::cout << "\t\tadd edge [symbolic|tf] source target data" << std::endl;
-        } else if (command[2] == "symbolic") {
-          if (command.size() >= 6) {
-            std::string data = command[5];
-            for (int i = 6; i < command.size(); i++) {data = data + " " + command[i];}
-            graph_->add_edge(ros2_knowledge_graph::Edge{data, "symbolic", command[3], command[4]});
-          } else {
-            std::cout << "\t\tadd edge symbolic source target data" << std::endl;
-          }
-        } else if (command[2] == "tf") {
-          if (command.size() != 11) {
-            std::cout << "Please, introduce a correct coordinate in format x  y  z y  p  r: " <<
-              std::endl;
-          } else {
-            double x = std::stod(command[5]);
-            double y = std::stod(command[6]);
-            double z = std::stod(command[7]);
-            double ry = std::stod(command[8]);
-            double rp = std::stod(command[9]);
-            double rr = std::stod(command[10]);
-
-            tf2::Quaternion q;
-            q.setRPY(rr, rp, ry);
-            tf2::Transform trans(q, tf2::Vector3(x, y, z));
-            ros2_knowledge_graph::TFEdge tf_edge;
-            tf_edge.tf_.header.frame_id = command[3];
-            tf_edge.tf_.child_frame_id = command[4];
-            tf2::convert(trans, tf_edge.tf_.transform);
-
-            graph_->add_tf_edge(tf_edge);
-          }
-        }  // if ((command[5].a ...
+        if (command.size() != 5) {
+          std::cout << "\t\tadd edge source target data" << std::endl;
+        } else {
+          graph_->add_edge(ros2_knowledge_graph::Edge{command[4], "no_type", command[2], command[3]});
+        }
       } else {
-        std::cout << "\tUsage: \n\t\tadd edge [symbolic|tf]..." << std::endl;
-      }  // else if (command[2] == "tf") ...
+        std::cout << "\tUsage: \n\t\tadd [node|edge]..." << std::endl;
+      }  
     } else {
       std::cout << "\tUsage: \n\t\tadd [node|edge]..." << std::endl;
     }
@@ -186,29 +137,12 @@ public:
           graph_->remove_node(command[2]);
         }
       } else if (command[1] == "edge") {
-        if ((command.size() == 2) ||
-          ((command.size() > 2) &&
-          ((command[2] != "symbolic") && (command[2] != "tf"))))
-        {
-          std::cout << "\t\tremove edge [symbolic|tf] source target [data]" << std::endl;
-        } else if (command[2] == "symbolic") {
-          if (command.size() >= 6) {
-            std::string data = command[5];
-            for (int i = 6; i < command.size(); i++) {data = data + " " + command[i];}
-            graph_->remove_edge(
-              ros2_knowledge_graph::Edge{data, "symbolic", command[3], command[4]});
-          } else {
-            std::cout << "\t\tremove edge symbolic source target data" << std::endl;
-          }
-        } else if (command[2] == "tf") {
-          if (command.size() == 5) {
-            graph_->remove_edge(ros2_knowledge_graph::Edge{"", "tf", command[3], command[4]});
-          } else {
-            std::cout << "\t\tremove edge tf source target" << std::endl;
-          }
+        if (command.size() != 5) {
+          std::cout << "\t\tremove edge source target data" << std::endl;
         } else {
-          std::cout << "\t\tremove edge [symbolic|tf] source target [data]" << std::endl;
-        }
+          graph_->remove_edge(
+              ros2_knowledge_graph::Edge{command[4], "no_type", command[2], command[3]});
+        }  
       } else {
         std::cout << "\tUsage: \n\t\tremove [node|edge]..." << std::endl;
       }
@@ -237,7 +171,8 @@ public:
   }
 
 private:
-  std::shared_ptr<ros2_knowledge_graph::TypedGraphNode> graph_;
+  std::shared_ptr<ros2_knowledge_graph::GraphNode> graph_;
+  std::string graph_id_;
 };
 
 int main(int argc, char * argv[])

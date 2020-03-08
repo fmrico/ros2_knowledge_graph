@@ -74,12 +74,6 @@ public:
   }
 };
 
-class TFEdge
-{
-public:
-  geometry_msgs::msg::TransformStamped tf_;
-};
-
 bool operator==(const Node & op1, const Node & op2);
 bool operator==(const Edge & op1, const Edge & op2);
 
