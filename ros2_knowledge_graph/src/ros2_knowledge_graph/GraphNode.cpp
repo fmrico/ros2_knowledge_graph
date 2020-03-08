@@ -57,14 +57,14 @@ GraphNode::start()
       });
   sync_spin_t_.detach();
 
-  RCLCPP_INFO(node_->get_logger(), "Waiting 2 seconds for a complete startup...");
+  RCLCPP_DEBUG(node_->get_logger(), "Waiting 2 seconds for a complete startup...");
   rclcpp::sleep_for(std::chrono::seconds(2));
-  RCLCPP_INFO(node_->get_logger(), "Starting");
+  RCLCPP_DEBUG(node_->get_logger(), "Starting");
  
 
   std::lock_guard<std::mutex> lock(mutex_);
 
-  RCLCPP_INFO(node_->get_logger(), "Sending SYNC");
+  RCLCPP_DEBUG(node_->get_logger(), "Sending SYNC");
   ros2_knowledge_graph_msgs::msg::GraphUpdate msg;
   msg.stamp = node_->now();
   msg.node_id = node_->get_name();
@@ -97,7 +97,7 @@ GraphNode::update_callback(const ros2_knowledge_graph_msgs::msg::GraphUpdate::Sh
               Node node;
               node.from_string(object_data);
               graph_.add_node(node);
-              RCLCPP_INFO(node_->get_logger(), "[%lf]\t(%s)\tADD NODE %s",
+              RCLCPP_DEBUG(node_->get_logger(), "[%lf]\t(%s)\tADD NODE %s",
                 rclcpp::Time(ts).seconds(),
                 msg->node_id.c_str(), object_data.c_str());
               last_ts_ = ts;
@@ -109,7 +109,7 @@ GraphNode::update_callback(const ros2_knowledge_graph_msgs::msg::GraphUpdate::Sh
             Node node;
             node.from_string(object_data);
             graph_.remove_node(node.name);
-            RCLCPP_INFO(node_->get_logger(), "[%lf]\t(%s)\tREMOVE NODE %s",
+            RCLCPP_DEBUG(node_->get_logger(), "[%lf]\t(%s)\tREMOVE NODE %s",
               rclcpp::Time(ts).seconds(),
               msg->node_id.c_str(), object_data.c_str());
             last_ts_ = ts;
@@ -127,7 +127,7 @@ GraphNode::update_callback(const ros2_knowledge_graph_msgs::msg::GraphUpdate::Sh
         switch (operation) {
           case ros2_knowledge_graph_msgs::msg::GraphUpdate::ADD:
             graph_.add_edge(edge);
-            RCLCPP_INFO(node_->get_logger(), "[%lf]\t(%s)\tADD EDGE %s",
+            RCLCPP_DEBUG(node_->get_logger(), "[%lf]\t(%s)\tADD EDGE %s",
               rclcpp::Time(ts).seconds(),
               msg->node_id.c_str(), object_data.c_str());
             last_ts_ = ts;
@@ -135,7 +135,7 @@ GraphNode::update_callback(const ros2_knowledge_graph_msgs::msg::GraphUpdate::Sh
 
           case ros2_knowledge_graph_msgs::msg::GraphUpdate::REMOVE:
             graph_.remove_edge(edge);
-            RCLCPP_INFO(node_->get_logger(), "[%lf]\t(%s)\tREMOVE NODE %s",
+            RCLCPP_DEBUG(node_->get_logger(), "[%lf]\t(%s)\tREMOVE NODE %s",
               rclcpp::Time(ts).seconds(),
               msg->node_id.c_str(), object_data.c_str());
             last_ts_ = ts;
@@ -148,7 +148,7 @@ GraphNode::update_callback(const ros2_knowledge_graph_msgs::msg::GraphUpdate::Sh
       {
         switch (operation) {
           case ros2_knowledge_graph_msgs::msg::GraphUpdate::SYNC:
-            RCLCPP_INFO(node_->get_logger(), "[%lf]\t(%s)\tSYNC %s",
+            RCLCPP_DEBUG(node_->get_logger(), "[%lf]\t(%s)\tSYNC %s",
               rclcpp::Time(ts).seconds(),
               msg->node_id.c_str(), object_data.c_str());
 
@@ -160,7 +160,7 @@ GraphNode::update_callback(const ros2_knowledge_graph_msgs::msg::GraphUpdate::Sh
 
           case ros2_knowledge_graph_msgs::msg::GraphUpdate::REQSYNC:
 
-            RCLCPP_INFO(node_->get_logger(), "[%lf]\t(%s)\tREQSYNC %s",
+            RCLCPP_DEBUG(node_->get_logger(), "[%lf]\t(%s)\tREQSYNC %s",
               rclcpp::Time(ts).seconds(),
               msg->node_id.c_str(), object_data.c_str());
 

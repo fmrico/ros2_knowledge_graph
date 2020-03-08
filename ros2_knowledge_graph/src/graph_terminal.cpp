@@ -50,7 +50,7 @@ public:
   {
     graph_ = std::make_shared<ros2_knowledge_graph::GraphNode>(graph_id_);
     graph_->start();
-    
+
     std::string line;
     bool success = true;
 
@@ -110,7 +110,6 @@ public:
           std::cout << "\tUsage: \n\t\tadd node id type" << std::endl;
         } else {
           graph_->add_node(ros2_knowledge_graph::Node{command[2], command[3]});
-          std::cerr << "Created" << std::endl;
         }
       } else if (command[1] == "edge") {
         if (command.size() != 5) {
