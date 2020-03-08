@@ -57,6 +57,11 @@ GraphNode::start()
       });
   sync_spin_t_.detach();
 
+  RCLCPP_INFO(node_->get_logger(), "Waiting 2 seconds for a complete startup...");
+  rclcpp::sleep_for(std::chrono::seconds(2));
+  RCLCPP_INFO(node_->get_logger(), "Starting");
+ 
+
   std::lock_guard<std::mutex> lock(mutex_);
 
   RCLCPP_INFO(node_->get_logger(), "Sending SYNC");

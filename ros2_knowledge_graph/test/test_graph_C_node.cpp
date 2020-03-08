@@ -86,7 +86,7 @@ int main(int argc, char ** argv)
   rclcpp::init(argc, argv);
   auto node = std::make_shared<NodeC>();
 
-  rclcpp::Rate rate(1);
+  rclcpp::Rate rate(100);
 
   while (rclcpp::ok()) {
     node->do_work();
