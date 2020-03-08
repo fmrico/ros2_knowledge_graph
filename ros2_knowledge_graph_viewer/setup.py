@@ -1,6 +1,6 @@
 from setuptools import setup
 
-package_name = 'bica_rqt_graph'
+package_name = 'ros2_knowledge_graph_viewer'
 setup(
     name=package_name,
     version='0.2.0',
@@ -9,7 +9,7 @@ setup(
     data_files=[
         ('share/ament_index/resource_index/packages',
             ['resource/' + package_name]),
-        ('share/' + package_name + '/resource', ['resource/BicaGraph.ui']),
+        ('share/' + package_name + '/resource', ['resource/Ros2KnowledgeGraph.ui']),
         ('share/' + package_name, ['package.xml']),
         ('share/' + package_name, ['plugin.xml']),
     ],
@@ -26,13 +26,13 @@ setup(
         'Topic :: Software Development',
     ],
     description=(
-        'bica_rqt_graph provides a GUI plugin for visualizing the BICA graph.'
+        'ros2_knowledge_graph_viewer provides a GUI plugin for visualizing the BICA graph.'
     ),
     license='BSD',
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
-            'bica_rqt_graph = bica_rqt_graph.main:main',
+            'ros2_knowledge_graph_viewer = ros2_knowledge_graph_viewer.main:main',
         ],
     },
 )

@@ -2,5 +2,5 @@
 \mainpage
 \htmlinclude manifest.html
 
-\b bica_rqt_graph provides a GUI plugin for visualizing the BICA graph.
+\b ros2_knowledge_graph_viewer provides a GUI plugin for visualizing the BICA graph.
 */

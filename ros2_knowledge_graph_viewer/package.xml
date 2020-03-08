@@ -1,7 +1,7 @@
 <package format="2">
-  <name>bica_rqt_graph</name>
+  <name>ros2_knowledge_graph_viewer</name>
   <version>0.2.0</version>
-  <description>bica_rqt_graph provides a GUI plugin for visualizing the BICA
+  <description>ros2_knowledge_graph_viewer provides a GUI plugin for visualizing the BICA
       graph.<br />
   </description>
   <maintainer email="fmrico@gmail.com">Francisco Martin</maintainer>
@@ -15,7 +15,7 @@
   <exec_depend>qt_dotgraph</exec_depend>
   <exec_depend>rqt_gui</exec_depend>
   <exec_depend>rqt_gui_py</exec_depend>
-  <exec_depend>bica_msgs</exec_depend>
+  <exec_depend>ros2_knowledge_graph_msgs</exec_depend>
   <exec_depend>geometry_msgs</exec_depend>
   <exec_depend>tf2_py</exec_depend>
   <exec_depend>tf2_ros</exec_depend>

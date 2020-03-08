@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <ui version="4.0">
- <class>BicaGraphWidget</class>
- <widget class="QWidget" name="BicaGraphWidget">
+ <class>Ros2KnowledgeGraphWidget</class>
+ <widget class="QWidget" name="Ros2KnowledgeGraphWidget">
   <property name="enabled">
    <bool>true</bool>
   </property>
@@ -125,7 +125,7 @@
   <customwidget>
    <class>InteractiveGraphicsView</class>
    <extends>QGraphicsView</extends>
-   <header>bica_rqt_graph.interactive_graphics_view</header>
+   <header>ros2_knowledge_graph_viewer.interactive_graphics_view</header>
   </customwidget>
  </customwidgets>
  <resources/>

@@ -34,9 +34,9 @@
 import unittest
 
 import os
-from bica_rqt_graph.dotcode import BicaGraphDotcodeGenerator
+from ros2_knowledge_graph_viewer.dotcode import Ros2KnowledgeGraphDotcodeGenerator
 
-PKG = 'bica_rqt_graph'
+PKG = 'ros2_knowledge_graph_viewer'
 
 
 class MockRclpyNode:
@@ -46,7 +46,7 @@ class MockRclpyNode:
 # class DotcodeTest(unittest.TestCase):
 
 #     def test_split_filter_empty(self):
-#         gen = BicaGraphDotcodeGenerator(MockRclpyNode())
+#         gen = Ros2KnowledgeGraphDotcodeGenerator(MockRclpyNode())
 #         inc, exc = gen._split_filter_string('')
 #         self.assertEqual(['.*'], inc)
 #         self.assertEqual(0, len(exc))
@@ -55,7 +55,7 @@ class MockRclpyNode:
 #         self.assertEqual(0, len(exc))
 
 #     def test_split_filter_includes(self):
-#         gen = BicaGraphDotcodeGenerator(MockRclpyNode())
+#         gen = Ros2KnowledgeGraphDotcodeGenerator(MockRclpyNode())
 #         inc, exc = gen._split_filter_string('foo')
 #         self.assertEqual(['foo'], inc)
 #         self.assertEqual(0, len(exc))
@@ -64,7 +64,7 @@ class MockRclpyNode:
 #         self.assertEqual(0, len(exc))
 
 #     def test_split_filter_excludes(self):
-#         gen = BicaGraphDotcodeGenerator(MockRclpyNode())
+#         gen = Ros2KnowledgeGraphDotcodeGenerator(MockRclpyNode())
 #         inc, exc = gen._split_filter_string('-foo')
 #         self.assertEqual(['.*'], inc)
 #         self.assertEqual(['foo'], exc)
@@ -73,7 +73,7 @@ class MockRclpyNode:
 #         self.assertEqual(['foo', 'bar'], exc)
 
 #     def test_split_filter_both(self):
-#         gen = BicaGraphDotcodeGenerator(MockRclpyNode())
+#         gen = Ros2KnowledgeGraphDotcodeGenerator(MockRclpyNode())
 #         inc, exc = gen._split_filter_string('-foo , bar ,baz, -bam')
 #         self.assertEqual(['bar', 'baz'], inc)
 #         self.assertEqual(['foo', 'bam'], exc)
@@ -85,7 +85,7 @@ class MockRclpyNode:
 #             self.end = end
 
 #     def test_get_node_edge_map(self):
-#         gen = BicaGraphDotcodeGenerator(MockRclpyNode())
+#         gen = Ros2KnowledgeGraphDotcodeGenerator(MockRclpyNode())
 #         e1 = self.MockEdge('foo', 'bar')
 #         nmap = gen._get_node_edge_map([e1])
 #         self.assertEqual(2, len(nmap))
@@ -97,7 +97,7 @@ class MockRclpyNode:
 #         self.assertEqual([], nmap['bar'].outgoing)
 
 #     def test_get_node_edge_map2(self):
-#         gen = BicaGraphDotcodeGenerator(MockRclpyNode())
+#         gen = Ros2KnowledgeGraphDotcodeGenerator(MockRclpyNode())
 #         e1 = self.MockEdge('foo', 'bar')
 #         e2 = self.MockEdge('bar', 'foo')
 #         e3 = self.MockEdge('foo', 'pam')
@@ -112,7 +112,7 @@ class MockRclpyNode:
 #         self.assertEqual([e2], nmap['bar'].outgoing)
 
 #     def test_filter_leaf_topics_single_connection(self):
-#         gen = BicaGraphDotcodeGenerator(MockRclpyNode())
+#         gen = Ros2KnowledgeGraphDotcodeGenerator(MockRclpyNode())
 #         topic_nodes = ['foo', 'bar', 'pam', 'boo']
 #         e1 = self.MockEdge('n1', 'foo')
 #         e2 = self.MockEdge('n2', 'foo')
@@ -137,7 +137,7 @@ class MockRclpyNode:
 #         self.assertEqual([e1, e2, e3, e4, e5, e6], edges)
 
 #     def test_filter_leaf_topics_dead_end(self):
-#         gen = BicaGraphDotcodeGenerator(MockRclpyNode())
+#         gen = Ros2KnowledgeGraphDotcodeGenerator(MockRclpyNode())
 #         topic_nodes = ['foo', 'bar', 'pam', 'boo']
 #         e1 = self.MockEdge('n1', 'foo')
 #         e2 = self.MockEdge('n2', 'foo')
@@ -162,7 +162,7 @@ class MockRclpyNode:
 #         self.assertEqual([e1, e2, e3, e4, e5, e6], edges)
 
 #     def test_filter_leaf_topics_both(self):
-#         gen = BicaGraphDotcodeGenerator(MockRclpyNode())
+#         gen = Ros2KnowledgeGraphDotcodeGenerator(MockRclpyNode())
 #         topic_nodes = ['foo', 'bar', 'pam', 'boo']
 #         e1 = self.MockEdge('n1', 'foo')
 #         e2 = self.MockEdge('n2', 'foo')
@@ -187,7 +187,7 @@ class MockRclpyNode:
 #         self.assertEqual([e1, e2, e3, e4, e5, e6], edges)
 
 #     def test_accumulate_action_topics(self):
-#         gen = BicaGraphDotcodeGenerator(MockRclpyNode())
+#         gen = Ros2KnowledgeGraphDotcodeGenerator(MockRclpyNode())
 #         topic_nodes = ['foo/feedback', 'foo/goal', 'foo/cancel', 'foo/result', 'foo/status', 'bar']
 #         e1 = self.MockEdge('n1', 'foo/feedback')
 #         e2 = self.MockEdge('n1', 'foo/goal')

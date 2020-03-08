@@ -35,7 +35,7 @@
 import re
 import copy
 
-from bica_rqt_graph import bicagraph2_impl
+from ros2_knowledge_graph_viewer import ros2_knowledge_graph2_impl
 import math
 import rclpy
 import pydot
@@ -49,7 +49,7 @@ except NameError:
     unicode = str
     # we're on python3
 
-class BicaGraphDotcodeGenerator:
+class Ros2KnowledgeGraphDotcodeGenerator:
 
     def __init__(self):
         # self.listener_ = tf.TransformListener()
@@ -57,7 +57,7 @@ class BicaGraphDotcodeGenerator:
 
     def generate_dotgraph(
         self,
-        bicagraphinst,
+        ros2_knowledge_graphinst,
         dotcode_factory,
         orientation='LR',
         rank='same',  # None, same, min, max, source, sink
@@ -79,7 +79,7 @@ class BicaGraphDotcodeGenerator:
             simplify=simplify,
             rankdir=orientation)
 
-        for node in bicagraphinst.nodes:
+        for node in ros2_knowledge_graphinst.nodes:
              dotcode_factory.add_node_to_graph(
                  dotgraph,
                  nodename=node.name,
@@ -87,7 +87,7 @@ class BicaGraphDotcodeGenerator:
                  shape='ellipse',
                  url=node.name)
 
-        for edge in bicagraphinst.edges:
+        for edge in ros2_knowledge_graphinst.edges:
             if edge.type != "tf":
                 dotcode_factory.add_edge_to_graph(
                     dotgraph,
@@ -99,7 +99,7 @@ class BicaGraphDotcodeGenerator:
                     color=[0, 0, 0])
             if edge.type == "tf":
                 try:
-                    trans = bicagraphinst.tfBuffer.lookup_transform(
+                    trans = ros2_knowledge_graphinst.tfBuffer.lookup_transform(
                     source_frame=edge.target,
                     target_frame=edge.source,
                     time=rclpy.time.Time())
@@ -122,7 +122,7 @@ class BicaGraphDotcodeGenerator:
                     penwidth=1,
                     color=[0, 0, 255])
 
-        # for edge in bicagraphinst.get_graph().edges:
+        # for edge in ros2_knowledge_graphinst.get_graph().edges:
         #     if edge.type == Edge.EDGE_TYPE_STRING:
         #         dotcode_factory.add_edge_to_graph(
         #             dotgraph,
@@ -166,7 +166,7 @@ class BicaGraphDotcodeGenerator:
 
     def generate_dotcode(
         self,
-        bicagraphinst,
+        ros2_knowledge_graphinst,
         dotcode_factory,
         orientation='LR',
         rank='same',  # None, same, min, max, source, sink
@@ -176,7 +176,7 @@ class BicaGraphDotcodeGenerator:
         quiet=False,
         unreachable=False):
         """
-        @param bicagraphinst: BicaGraph instance
+        @param ros2_knowledge_graphinst: Ros2KnowledgeGraph instance
         @param ns_filter: nodename filter
         @type  ns_filter: string
         @param topic_filter: topicname filter
@@ -195,7 +195,7 @@ class BicaGraphDotcodeGenerator:
         @rtype: str
         """
         dotgraph = self.generate_dotgraph(
-            bicagraphinst=bicagraphinst,
+            ros2_knowledge_graphinst=ros2_knowledge_graphinst,
             dotcode_factory=dotcode_factory,
             orientation=orientation,
             rank=rank,

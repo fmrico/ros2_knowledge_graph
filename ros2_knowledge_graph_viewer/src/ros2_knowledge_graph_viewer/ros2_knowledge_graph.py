@@ -47,7 +47,7 @@ from python_qt_binding.QtSvg import QSvgGenerator
 
 import rclpy
 
-from bica_rqt_graph.bicagraph2_impl import BicaGraphImpl
+from ros2_knowledge_graph_viewer.ros2_knowledge_graph2_impl import Ros2KnowledgeGraphImpl
 
 from qt_dotgraph.dot_to_qt import DotToQtGenerator
 # pydot requires some hacks
@@ -57,10 +57,10 @@ from rqt_gui_py.plugin import Plugin
 # from qtgui_plugin.pygraphvizfactory import PygraphvizFactory
 
 from .dotcode import \
-    BicaGraphDotcodeGenerator
+    Ros2KnowledgeGraphDotcodeGenerator
 from .interactive_graphics_view import InteractiveGraphicsView
 
-from .bicagraph2_impl import BicaGraphImpl
+from .ros2_knowledge_graph2_impl import Ros2KnowledgeGraphImpl
 
 from PyQt5 import QtGui, QtCore
 
@@ -72,31 +72,30 @@ except NameError:
     # we're on python3
 
 
-class BicaGraph(Plugin):
+class Ros2KnowledgeGraph(Plugin):
 
     _deferred_fit_in_view = Signal()
 
     def __init__(self, context):
-        super(BicaGraph, self).__init__(context)
+        super(Ros2KnowledgeGraph, self).__init__(context)
 
         self._node = context.node
-        self._logger = self._node.get_logger().get_child('bica_rqt_graph.bica_graph.BicaGraph')
-        self.initialized = False
-        self.setObjectName('BicaGraph')
+        self._logger = self._node.get_logger().get_child('ros2_knowledge_graph_viewer.ros2_knowledge_graph.Ros2KnowledgeGraph')
+        self.setObjectName('Ros2KnowledgeGraph')
 
-        self._bicagraph = BicaGraphImpl()
+        self._ros2_knowledge_graph = Ros2KnowledgeGraphImpl()
         self._current_dotcode = None
 
         self._widget = QWidget()
 
         self.dotcode_factory = PydotFactory()
-        self.dotcode_generator = BicaGraphDotcodeGenerator()
+        self.dotcode_generator = Ros2KnowledgeGraphDotcodeGenerator()
         self.dot_to_qt = DotToQtGenerator()
 
-        _, package_path = get_resource('packages', 'bica_rqt_graph')
-        ui_file = os.path.join(package_path, 'share', 'bica_rqt_graph', 'resource', 'BicaGraph.ui')
+        _, package_path = get_resource('packages', 'ros2_knowledge_graph_viewer')
+        ui_file = os.path.join(package_path, 'share', 'ros2_knowledge_graph_viewer', 'resource', 'Ros2KnowledgeGraph.ui')
         loadUi(ui_file, self._widget, {'InteractiveGraphicsView': InteractiveGraphicsView})
-        self._widget.setObjectName('BicaGraphUi')
+        self._widget.setObjectName('Ros2KnowledgeGraphUi')
         if context.serial_number() > 1:
             self._widget.setWindowTitle(
                 self._widget.windowTitle() + (' (%d)' % context.serial_number()))
@@ -110,7 +109,7 @@ class BicaGraph(Plugin):
         self._widget.save_as_image_push_button.setIcon(QIcon.fromTheme('image'))
         self._widget.save_as_image_push_button.pressed.connect(self._save_image)
 
-        self._update_bicagraph()
+        self._update_ros2_knowledge_graph()
         self._deferred_fit_in_view.connect(self._fit_in_view, Qt.QueuedConnection)
         self._deferred_fit_in_view.emit()
 
@@ -122,30 +121,26 @@ class BicaGraph(Plugin):
 
     def do_update(self):
         # print("Spinnning")
-        rclpy.spin_once(self._bicagraph, timeout_sec=0.01)
+        rclpy.spin_once(self._ros2_knowledge_graph, timeout_sec=0.01)
         # print("Spinned")
 
-        self.initialized = True
-        self._update_bicagraph()
+        self._update_ros2_knowledge_graph()
 
         self._updateTimer = QtCore.QTimer()
         self._updateTimer.timeout.connect(self.do_update)
         self._updateTimer.start(10)
 
 
-    def _update_bicagraph(self):
-        if self._bicagraph.initialized:
-            self._refresh_bicagraph()
+    def _update_ros2_knowledge_graph(self):
+        self._refresh_ros2_knowledge_graph()
 
-    def _refresh_bicagraph(self):
-        # print("_refresh_bicagraph")
-        if not self.initialized:
-            return
+    def _refresh_ros2_knowledge_graph(self):
+        # print("_refresh_ros2_knowledge_graph")
         self._update_graph_view(self._generate_dotcode())
 
     def _generate_dotcode(self):
         return self.dotcode_generator.generate_dotcode(
-            bicagraphinst=self._bicagraph,
+            ros2_knowledge_graphinst=self._ros2_knowledge_graph,
             dotcode_factory=self.dotcode_factory)
 
     def _update_graph_view(self, dotcode):

@@ -50,7 +50,8 @@ from rclpy.qos import QoSPresetProfiles
 from rclpy.qos import QoSProfile
 from rclpy.qos import QoSReliabilityPolicy
 
-from bica_msgs.msg import GraphUpdate
+from ros2_knowledge_graph_msgs.msg import GraphUpdate
+from builtin_interfaces.msg import Time
 
 class GraphNode:
     def __init__(self, node_str):
@@ -77,12 +78,10 @@ class GraphEdge:
     def __repr__(self):
         return 'edge::' + self.source + '->' + self.target + '::' + self.content + '::' + self.type
 
-class BicaGraphImpl(Node):
+class Ros2KnowledgeGraphImpl(Node):
 
     def __init__(self):
-        super().__init__('rqt_bica_graph')
-
-        self.initialized = self.count_publishers('/graph_updates') == 0
+        super().__init__('rqt_ros2_knowledge_graph')
 
         self.update_sub = self.create_subscription(
             GraphUpdate,
@@ -94,35 +93,27 @@ class BicaGraphImpl(Node):
                 reliability=QoSReliabilityPolicy.RMW_QOS_POLICY_RELIABILITY_RELIABLE)
             )
 
-        self.sync_update_sub = self.create_subscription(
-            GraphUpdate,
-            '/graph_updates_sync',
-            self.graph_sync_callback,
+        self.graph_pub = self.create_publisher(GraphUpdate,
+            '/graph_updates',
             qos_profile=QoSProfile(
                 history=QoSHistoryPolicy.RMW_QOS_POLICY_HISTORY_KEEP_LAST,
                 depth=100,
                 reliability=QoSReliabilityPolicy.RMW_QOS_POLICY_RELIABILITY_RELIABLE)
             )
 
-        self.graph_sync_pub = self.create_publisher(GraphUpdate,
-            '/graph_updates_sync',
-            qos_profile=QoSProfile(
-                history=QoSHistoryPolicy.RMW_QOS_POLICY_HISTORY_KEEP_LAST,
-                depth=100,
-                reliability=QoSReliabilityPolicy.RMW_QOS_POLICY_RELIABILITY_RELIABLE)
-            )
-
-        if not self.initialized:
-            msg = GraphUpdate()
-            msg.operation_type = 3  # msg.REQSYNC
-            self.graph_sync_pub.publish(msg)
+        
+        msg = GraphUpdate()
+        msg.operation_type = 3  # msg.REQSYNC
+        msg.element_type = 2  # msg.GRAPH
+        print(self.get_clock().now().seconds_nanoseconds())
+        msg.stamp.sec = self.get_clock().now().seconds_nanoseconds()[0]
+        msg.stamp.nanosec = self.get_clock().now().seconds_nanoseconds()[1]
+       
+        msg.node_id = self.get_name()
+        self.graph_pub.publish(msg)
 
         self.nodes = []
         self.edges = []
-        self.seq = 0
-
-        self.tfBuffer = tf2_ros.Buffer()
-        self.tfListener = tf2_ros.TransformListener(self.tfBuffer, node=self)
 
     def __repr__(self):
         ret = "Nodes: " + str(len(self.nodes)) + '\n'
@@ -136,8 +127,6 @@ class BicaGraphImpl(Node):
     def init_graph(self, msg):
         self.nodes = []
         self.edges = []
-        self.seq = msg.seq
-        self.initialized = True
         for element in msg.object.splitlines():
             if element[0:4] == "node":
                 self.nodes.append(GraphNode(element))
@@ -146,63 +135,44 @@ class BicaGraphImpl(Node):
 
     def add_node(self, msg):
         self.nodes.append(GraphNode(msg.object))
-        self.seq = msg.seq
 
     def remove_node(self, msg):
         node_to_remove = GraphNode(msg.object)
         self.nodes.remove(node_to_remove)
-        self.seq = msg.seq
 
         new_edges = [x for x in self.edges if x.source != node_to_remove.name and x.target != node_to_remove.name]
         self.edges = new_edges
 
     def add_edge(self, msg):
         self.edges.append(GraphEdge(msg.object))
-        self.seq = msg.seq
 
     def remove_edge(self, msg):
         edge_to_remove = GraphEdge(msg.object)
         self.edges.remove(edge_to_remove)
-        self.seq = msg.seq
-
-    def graph_sync_callback(self, msg):
-        # self.get_logger().info('I heard: a new graph or update ' + str(msg.operation_type) + ' ' + str(self.initialized))
-
-        # REQSYNC
-        if msg.operation_type == 3 and self.initialized: # msg.REQSYNC
-            print("REQSYNC")
-            msg = GraphUpdate()
-            msg.operation_type = 2  # msg.SYNC
-            msg.element_type = 2
-            msg.node_id = self.get_name()
-            msg.seq = self.seq
-            msg.object = str(self)
-            self.graph_sync_pub.publish(msg)
-
-        # SYNC
-        if msg.operation_type == 2 and not self.initialized:
-            print("SYNC")
-            self.init_graph(msg)
-
+        
     def graph_update_callback(self, msg):
         self.get_logger().info('I heard: a new graph or update')
 
         # ADD NODE
-        if msg.operation_type == 0 and msg.element_type == 0 and self.initialized:
+        if msg.operation_type == 0 and msg.element_type == 0:
             # print("add node " + msg.object)
             self.add_node(msg)
 
         # ADD EDGE
-        if msg.operation_type == 0 and msg.element_type == 1 and self.initialized:
+        if msg.operation_type == 0 and msg.element_type == 1:
             # print("add edge " + msg.object)
             self.add_edge(msg)
 
         # REMOVE NODE
-        if msg.operation_type == 1 and msg.element_type == 0 and self.initialized:
+        if msg.operation_type == 1 and msg.element_type == 0:
             # print("remove node " + msg.object)
             self.remove_node(msg)
 
         # REMOVE EDGE
-        if msg.operation_type == 1 and msg.element_type == 1 and self.initialized:
+        if msg.operation_type == 1 and msg.element_type == 1:
             # print("remove edge " + msg.object)
             self.remove_edge(msg)
+
+        # SYNC
+        if msg.operation_type == 2 and msg.target_node == self.get_name():
+            self.init_graph(msg)
