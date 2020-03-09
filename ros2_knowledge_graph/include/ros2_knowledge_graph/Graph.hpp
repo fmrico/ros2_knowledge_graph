@@ -21,14 +21,13 @@
 #include <utility>
 
 #include "ros2_knowledge_graph/Types.hpp"
-#include "ros2_knowledge_graph/GraphInterface.hpp"
 
 namespace ros2_knowledge_graph
 {
 
 using ConnectionT = std::pair<std::string, std::string>;
 
-class Graph : public GraphInterface
+class Graph
 {
 public:
   Graph();

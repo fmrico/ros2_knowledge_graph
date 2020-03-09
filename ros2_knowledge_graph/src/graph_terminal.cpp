@@ -43,7 +43,6 @@ public:
   explicit GraphTerminal(const std::string & id)
   : graph_id_(id)
   {
-    
   }
 
   void run_console()
@@ -83,7 +82,7 @@ public:
     std::cout << "total string edges: " << graph_->get_num_edges() << std::endl;
     for (const auto & pair : graph_->get_edges()) {
       for (const auto & edge : pair.second) {
-          std::cout << "\t" << edge.to_string() << std::endl;
+        std::cout << "\t" << edge.to_string() << std::endl;
       }
     }
   }
@@ -112,14 +111,15 @@ public:
           graph_->add_node(ros2_knowledge_graph::Node{command[2], command[3]});
         }
       } else if (command[1] == "edge") {
-        if (command.size() != 5) {
-          std::cout << "\t\tadd edge source target data" << std::endl;
+        if (command.size() != 6) {
+          std::cout << "\t\tadd edge source target type data" << std::endl;
         } else {
-          graph_->add_edge(ros2_knowledge_graph::Edge{command[4], "no_type", command[2], command[3]});
+          graph_->add_edge(
+            ros2_knowledge_graph::Edge{command[5], command[4], command[2], command[3]});
         }
       } else {
         std::cout << "\tUsage: \n\t\tadd [node|edge]..." << std::endl;
-      }  
+      }
     } else {
       std::cout << "\tUsage: \n\t\tadd [node|edge]..." << std::endl;
     }
@@ -136,17 +136,52 @@ public:
           graph_->remove_node(command[2]);
         }
       } else if (command[1] == "edge") {
-        if (command.size() != 5) {
-          std::cout << "\t\tremove edge source target data" << std::endl;
+        if (command.size() != 6) {
+          std::cout << "\t\tremove edge source target type data" << std::endl;
         } else {
           graph_->remove_edge(
-              ros2_knowledge_graph::Edge{command[4], "no_type", command[2], command[3]});
-        }  
+            ros2_knowledge_graph::Edge{command[5], command[4], command[2], command[3]});
+        }
       } else {
         std::cout << "\tUsage: \n\t\tremove [node|edge]..." << std::endl;
       }
     } else {
       std::cout << "\tUsage: \n\t\tremove [node|edge]..." << std::endl;
+    }
+  }
+
+  void process_get(const std::vector<std::string> & command)
+  {
+    if (command.size() > 1) {
+      if (command[1] == "node") {
+        if (command.size() != 3) {
+          std::cout << "\tUsage: \n\t\tget node id" << std::endl;
+        } else {
+          auto node = graph_->get_node(command[2]);
+
+          if (node.has_value()) {
+            std::cout << "\t" << node.value().to_string() << std::endl;
+          } else {
+            std::cout << "\tNode [" << command[2] << "] not found" << std::endl;
+          }
+        }
+      } else if (command[1] == "edge") {
+        if (command.size() != 5) {
+          std::cout << "\t\tget edge source target type" << std::endl;
+        } else {
+          std::vector<ros2_knowledge_graph::Edge> edges;
+          graph_->get_edges(command[2], command[3], command[4], edges);
+
+          std::cout << "\tEdges found: " << edges.size() << std::endl;
+          for (const auto & edge : edges) {
+            std::cout << "\t\t" << edge.to_string() << std::endl;
+          }
+        }
+      } else {
+        std::cout << "\tUsage: \n\t\tget [node|edge]..." << std::endl;
+      }
+    } else {
+      std::cout << "\tUsage: \n\t\tget [node|edge]..." << std::endl;
     }
   }
 
@@ -162,6 +197,8 @@ public:
       process_list(tokens);
     } else if (tokens[0] == "add") {
       process_add(tokens);
+    } else if (tokens[0] == "get") {
+      process_get(tokens);
     } else if (tokens[0] == "remove") {
       process_remove(tokens);
     } else {

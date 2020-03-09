@@ -88,40 +88,39 @@ class Ros2KnowledgeGraphDotcodeGenerator:
                  url=node.name)
 
         for edge in ros2_knowledge_graphinst.edges:
-            if edge.type != "tf":
-                dotcode_factory.add_edge_to_graph(
-                    dotgraph,
-                    edge.source,
-                    edge.target,
-                    label= '[' + edge.type + '] ' + edge.content,
-                    url='%s %s %s '.format(edge.source, edge.target, edge.content),
-                    penwidth=1,
-                    color=[0, 0, 0])
-            if edge.type == "tf":
-                try:
-                    trans = ros2_knowledge_graphinst.tfBuffer.lookup_transform(
-                    source_frame=edge.target,
-                    target_frame=edge.source,
-                    time=rclpy.time.Time())
-                except (tf2_ros.LookupException):
-                    continue
-
-                x = trans._transform._translation.x
-                y = trans._transform._translation.y
-                z = trans._transform._translation.z
-
-                yaw = math.atan2(y, x)
-                pitch = math.atan2(x, x)
-                tf_label = '{0:.2f} {1:.2f} {2:.2f} ({3:.2f} {4:.2f})'.format(x, y, z, yaw, pitch)
-                dotcode_factory.add_edge_to_graph(
-                    dotgraph,
-                    edge.source,
-                    edge.target,
-                    label=tf_label,
-                    url='%s %s %s'.format(edge.source, edge.target, "tf"),
-                    penwidth=1,
-                    color=[0, 0, 255])
-
+            dotcode_factory.add_edge_to_graph(
+                dotgraph,
+                edge.source,
+                edge.target,
+                label= '[' + edge.type + '] ' + edge.content,
+                url='%s %s %s '.format(edge.source, edge.target, edge.content),
+                penwidth=1,
+                color=[0, 0, 0])
+            #if edge.type == "tf":
+            #    try:
+            #        trans = ros2_knowledge_graphinst.tfBuffer.lookup_transform(
+            #        source_frame=edge.target,
+            #        target_frame=edge.source,
+            #        time=rclpy.time.Time())
+            #    except (tf2_ros.LookupException):
+            #        continue
+#
+            #    x = trans._transform._translation.x
+            #    y = trans._transform._translation.y
+            #    z = trans._transform._translation.z
+#
+            #    yaw = math.atan2(y, x)
+            #    pitch = math.atan2(x, x)
+            #    tf_label = '{0:.2f} {1:.2f} {2:.2f} ({3:.2f} {4:.2f})'.format(x, y, z, yaw, pitch)
+            #    dotcode_factory.add_edge_to_graph(
+            #        dotgraph,
+            #        edge.source,
+            #        edge.target,
+            #        label=tf_label,
+            #        url='%s %s %s'.format(edge.source, edge.target, "tf"),
+            #        penwidth=1,
+            #        color=[0, 0, 255])
+#
         # for edge in ros2_knowledge_graphinst.get_graph().edges:
         #     if edge.type == Edge.EDGE_TYPE_STRING:
         #         dotcode_factory.add_edge_to_graph(

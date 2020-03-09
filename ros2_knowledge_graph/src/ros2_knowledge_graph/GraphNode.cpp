@@ -32,7 +32,8 @@ namespace ros2_knowledge_graph
 {
 
 GraphNode::GraphNode(const std::string & provided_node_name)
-: node_name_(provided_node_name + "_graph")
+: node_name_(provided_node_name + "_graph"),
+  lp_loader_("ros2_knowledge_graph", "ros2_knowledge_graph::Layer")
 {
 }
 
@@ -40,6 +41,30 @@ void
 GraphNode::start()
 {
   node_ = std::make_shared<rclcpp::Node>(node_name_);
+
+  std::vector<std::string> default_id, default_type;
+  default_type.push_back("ros2_kg_tf_plugin::TFLayer");
+  default_id.push_back("TFLayer");
+
+  node_->declare_parameter("layer_plugin_ids", default_id);
+  node_->declare_parameter("layer_plugin_types", default_type);
+  node_->get_parameter("layer_plugin_ids", layer_ids_);
+  node_->get_parameter("layer_plugin_types", layer_types_);
+
+  for (uint i = 0; i != layer_types_.size(); i++) {
+    try {
+      ros2_knowledge_graph::Layer::Ptr layer =
+        lp_loader_.createUniqueInstance(layer_types_[i]);
+      layer->configure(node_);
+      RCLCPP_INFO(
+        node_->get_logger(), "Created layer : %s of type %s",
+        layer_ids_[i].c_str(), layer_types_[i].c_str());
+      layers_.insert({layer_ids_[i], layer});
+    } catch (const pluginlib::PluginlibException & ex) {
+      RCLCPP_FATAL(node_->get_logger(), "Failed to create layer. Exception: %s", ex.what());
+      exit(-1);
+    }
+  }
 
   last_ts_ = node_->now();
 
@@ -60,7 +85,7 @@ GraphNode::start()
   RCLCPP_DEBUG(node_->get_logger(), "Waiting 2 seconds for a complete startup...");
   rclcpp::sleep_for(std::chrono::seconds(2));
   RCLCPP_DEBUG(node_->get_logger(), "Starting");
- 
+
 
   std::lock_guard<std::mutex> lock(mutex_);
 
@@ -105,16 +130,16 @@ GraphNode::update_callback(const ros2_knowledge_graph_msgs::msg::GraphUpdate::Sh
             }
 
           case ros2_knowledge_graph_msgs::msg::GraphUpdate::REMOVE:
-          {
-            Node node;
-            node.from_string(object_data);
-            graph_.remove_node(node.name);
-            RCLCPP_DEBUG(node_->get_logger(), "[%lf]\t(%s)\tREMOVE NODE %s",
-              rclcpp::Time(ts).seconds(),
-              msg->node_id.c_str(), object_data.c_str());
-            last_ts_ = ts;
-            break;
-          }
+            {
+              Node node;
+              node.from_string(object_data);
+              graph_.remove_node(node.name);
+              RCLCPP_DEBUG(node_->get_logger(), "[%lf]\t(%s)\tREMOVE NODE %s",
+                rclcpp::Time(ts).seconds(),
+                msg->node_id.c_str(), object_data.c_str());
+              last_ts_ = ts;
+              break;
+            }
         }
       }
       break;
@@ -127,6 +152,7 @@ GraphNode::update_callback(const ros2_knowledge_graph_msgs::msg::GraphUpdate::Sh
         switch (operation) {
           case ros2_knowledge_graph_msgs::msg::GraphUpdate::ADD:
             graph_.add_edge(edge);
+
             RCLCPP_DEBUG(node_->get_logger(), "[%lf]\t(%s)\tADD EDGE %s",
               rclcpp::Time(ts).seconds(),
               msg->node_id.c_str(), object_data.c_str());
@@ -187,13 +213,19 @@ GraphNode::add_node(const Node & node)
 {
   std::lock_guard<std::mutex> lock(mutex_);
 
-  if (graph_.can_add_node(node)) {
+  Node modificable_node = node;
+
+  for (const auto & layer_id : layer_ids_) {
+    layers_[layer_id]->on_add_node(modificable_node);
+  }
+
+  if (graph_.can_add_node(modificable_node)) {
     ros2_knowledge_graph_msgs::msg::GraphUpdate msg;
     msg.stamp = node_->now();
     msg.node_id = node_->get_name();
     msg.operation_type = ros2_knowledge_graph_msgs::msg::GraphUpdate::ADD;
     msg.element_type = ros2_knowledge_graph_msgs::msg::GraphUpdate::NODE;
-    msg.object = node.to_string();
+    msg.object = modificable_node.to_string();
 
     update_pub_->publish(msg);
 
@@ -207,6 +239,10 @@ bool
 GraphNode::remove_node(const std::string node)
 {
   std::lock_guard<std::mutex> lock(mutex_);
+
+  for (const auto & layer_id : layer_ids_) {
+    layers_[layer_id]->on_remove_node(node);
+  }
 
   if (graph_.can_remove_node(node)) {
     ros2_knowledge_graph_msgs::msg::GraphUpdate msg;
@@ -235,23 +271,39 @@ std::optional<Node>
 GraphNode::get_node(const std::string node)
 {
   std::lock_guard<std::mutex> lock(mutex_);
-  return graph_.get_node(node);
+
+  auto opt_node = graph_.get_node(node);
+
+  if (opt_node.has_value()) {
+    Node modificable_node = opt_node.value();
+    for (const auto & layer_id : layer_ids_) {
+      layers_[layer_id]->on_get_node(modificable_node);
+    }
+    return modificable_node;
+  } else {
+    return {};
+  }
 }
 
 bool
 GraphNode::add_edge(const Edge & edge)
 {
+  Edge modificable_edge = edge;
+
+  for (const auto & layer_id : layer_ids_) {
+    layers_[layer_id]->on_add_edge(modificable_edge);
+  }
+
   std::lock_guard<std::mutex> lock(mutex_);
-  if (graph_.can_add_edge(edge)) {
+
+  if (graph_.can_add_edge(modificable_edge) && !graph_.exist_edge(modificable_edge)) {
     ros2_knowledge_graph_msgs::msg::GraphUpdate msg;
     msg.stamp = node_->now();
     msg.node_id = node_->get_name();
     msg.operation_type = ros2_knowledge_graph_msgs::msg::GraphUpdate::ADD;
     msg.element_type = ros2_knowledge_graph_msgs::msg::GraphUpdate::EDGE;
-    msg.object = edge.to_string();
-
+    msg.object = modificable_edge.to_string();
     update_pub_->publish(msg);
-
     return true;
   } else {
     return false;
@@ -262,13 +314,20 @@ bool
 GraphNode::remove_edge(const Edge & edge)
 {
   std::lock_guard<std::mutex> lock(mutex_);
-  if (graph_.can_remove_edge(edge)) {
+
+  Edge modificable_edge = edge;
+
+  for (const auto & layer_id : layer_ids_) {
+    layers_[layer_id]->on_remove_edge(modificable_edge);
+  }
+
+  if (graph_.can_remove_edge(modificable_edge)) {
     ros2_knowledge_graph_msgs::msg::GraphUpdate msg;
     msg.stamp = node_->now();
     msg.node_id = node_->get_name();
     msg.operation_type = ros2_knowledge_graph_msgs::msg::GraphUpdate::REMOVE;
     msg.element_type = ros2_knowledge_graph_msgs::msg::GraphUpdate::EDGE;
-    msg.object = edge.to_string();
+    msg.object = modificable_edge.to_string();
 
     update_pub_->publish(msg);
     return true;
@@ -284,11 +343,26 @@ GraphNode::exist_edge(const Edge & edge)
   return graph_.exist_edge(edge);
 }
 
-std::optional<std::vector<Edge> *>
-GraphNode::get_edges(const std::string & source, const std::string & target)
+
+void
+GraphNode::get_edges(
+  const std::string & source, const std::string & target,
+  const std::string & type, std::vector<Edge> & result)
 {
   std::lock_guard<std::mutex> lock(mutex_);
-  return graph_.get_edges(source, target);
+  auto opt_edges = graph_.get_edges(source, target);
+
+  std::vector<Edge> edges;
+  if (opt_edges.has_value()) {
+    for (auto & edge : *opt_edges.value()) {
+      Edge modificable_edge = edge;
+
+      for (const auto & layer_id : layer_ids_) {
+        layers_[layer_id]->on_get_edge(modificable_edge);
+      }
+      result.push_back(modificable_edge);
+    }
+  }
 }
 
 std::string
@@ -318,6 +392,7 @@ GraphNode::get_num_nodes() const
   std::lock_guard<std::mutex> lock(mutex_);
   return graph_.get_num_nodes();
 }
+
 
 const std::map<std::string, Node> &
 GraphNode::get_nodes()
