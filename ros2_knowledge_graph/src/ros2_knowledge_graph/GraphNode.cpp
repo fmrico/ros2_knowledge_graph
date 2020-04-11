@@ -56,7 +56,7 @@ GraphNode::start()
       ros2_knowledge_graph::Layer::Ptr layer =
         lp_loader_.createUniqueInstance(layer_types_[i]);
       layer->configure(node_);
-      RCLCPP_INFO(
+      RCLCPP_DEBUG(
         node_->get_logger(), "Created layer : %s of type %s",
         layer_ids_[i].c_str(), layer_types_[i].c_str());
       layers_.insert({layer_ids_[i], layer});
@@ -83,7 +83,7 @@ GraphNode::start()
   sync_spin_t_.detach();
 
   RCLCPP_DEBUG(node_->get_logger(), "Waiting 2 seconds for a complete startup...");
-  rclcpp::sleep_for(std::chrono::seconds(2));
+  rclcpp::sleep_for(std::chrono::seconds(1));
   RCLCPP_DEBUG(node_->get_logger(), "Starting");
 
 

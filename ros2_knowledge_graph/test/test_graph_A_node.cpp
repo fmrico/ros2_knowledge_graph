@@ -88,6 +88,12 @@ int main(int argc, char ** argv)
 
   rclcpp::Rate rate(100);
 
+
+  RCLCPP_DEBUG(node->get_logger(), "Waiting 2 seconds for a complete startup...");
+  rclcpp::sleep_for(std::chrono::seconds(1));
+  RCLCPP_DEBUG(node->get_logger(), "Starting");
+
+
   while (rclcpp::ok()) {
     node->do_work();
     rclcpp::spin_some(node->get_node_base_interface());
