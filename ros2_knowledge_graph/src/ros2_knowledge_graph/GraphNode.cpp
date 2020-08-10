@@ -33,7 +33,8 @@ namespace ros2_knowledge_graph
 
 GraphNode::GraphNode(const std::string & provided_node_name)
 : node_name_(provided_node_name + "_graph"),
-  lp_loader_("ros2_knowledge_graph", "ros2_knowledge_graph::Layer")
+  lp_loader_("ros2_knowledge_graph", "ros2_knowledge_graph::Layer"),
+  started_(false)
 {
 }
 
@@ -56,7 +57,7 @@ GraphNode::start()
       ros2_knowledge_graph::Layer::Ptr layer =
         lp_loader_.createUniqueInstance(layer_types_[i]);
       layer->configure(node_);
-      RCLCPP_INFO(
+      RCLCPP_DEBUG(
         node_->get_logger(), "Created layer : %s of type %s",
         layer_ids_[i].c_str(), layer_types_[i].c_str());
       layers_.insert({layer_ids_[i], layer});
@@ -64,6 +65,8 @@ GraphNode::start()
       RCLCPP_FATAL(node_->get_logger(), "Failed to create layer. Exception: %s", ex.what());
       exit(-1);
     }
+
+    started_ = true;
   }
 
   last_ts_ = node_->now();
@@ -77,9 +80,10 @@ GraphNode::start()
 
   rclcpp::spin_some(node_);
 
-  sync_spin_t_ = std::thread([this] {
-        rclcpp::spin(this->node_);
-      });
+  sync_spin_t_ = std::thread(
+    [this] {
+      rclcpp::spin(this->node_);
+    });
   sync_spin_t_.detach();
 
   RCLCPP_DEBUG(node_->get_logger(), "Waiting 2 seconds for a complete startup...");
@@ -104,28 +108,43 @@ GraphNode::update_callback(const ros2_knowledge_graph_msgs::msg::GraphUpdate::Sh
 {
   std::lock_guard<std::mutex> lock(mutex_);
 
+  const auto & author_id = msg->node_id;
   const auto & element = msg->element_type;
   const auto & operation = msg->operation_type;
   const auto & object_data = msg->object;
   const auto & ts = msg->stamp;
 
-  if (rclcpp::Time(ts) < last_ts_) {
-    RCLCPP_ERROR(node_->get_logger(), "UNORDERER UPDATE");
+  if (author_id == node_->get_name()) {
+    return;
+  }
+
+  if (rclcpp::Time(ts) < last_ts_ &&
+    operation != ros2_knowledge_graph_msgs::msg::GraphUpdate::REQSYNC &&
+    operation != ros2_knowledge_graph_msgs::msg::GraphUpdate::SYNC)
+  {
+    RCLCPP_ERROR(
+      node_->get_logger(), "UNORDERER UPDATE [%zd] %lf > %lf in [%s]",
+      operation,
+      last_ts_.seconds(), rclcpp::Time(ts).seconds(), msg->object.c_str());
   }
 
   switch (element) {
     case ros2_knowledge_graph_msgs::msg::GraphUpdate::NODE:
       {
+        if (author_id == node_->get_name()) {
+          return;
+        }
+
         switch (operation) {
           case ros2_knowledge_graph_msgs::msg::GraphUpdate::ADD:
             {
               Node node;
               node.from_string(object_data);
               graph_.add_node(node);
-              RCLCPP_DEBUG(node_->get_logger(), "[%lf]\t(%s)\tADD NODE %s",
+              RCLCPP_DEBUG(
+                node_->get_logger(), "[%lf]\t(%s)\tADD NODE %s",
                 rclcpp::Time(ts).seconds(),
                 msg->node_id.c_str(), object_data.c_str());
-              last_ts_ = ts;
               break;
             }
 
@@ -134,10 +153,10 @@ GraphNode::update_callback(const ros2_knowledge_graph_msgs::msg::GraphUpdate::Sh
               Node node;
               node.from_string(object_data);
               graph_.remove_node(node.name);
-              RCLCPP_DEBUG(node_->get_logger(), "[%lf]\t(%s)\tREMOVE NODE %s",
+              RCLCPP_DEBUG(
+                node_->get_logger(), "[%lf]\t(%s)\tREMOVE NODE %s",
                 rclcpp::Time(ts).seconds(),
                 msg->node_id.c_str(), object_data.c_str());
-              last_ts_ = ts;
               break;
             }
         }
@@ -146,6 +165,10 @@ GraphNode::update_callback(const ros2_knowledge_graph_msgs::msg::GraphUpdate::Sh
 
     case ros2_knowledge_graph_msgs::msg::GraphUpdate::EDGE:
       {
+        if (author_id == node_->get_name()) {
+          return;
+        }
+
         Edge edge;
         edge.from_string(object_data);
 
@@ -153,18 +176,18 @@ GraphNode::update_callback(const ros2_knowledge_graph_msgs::msg::GraphUpdate::Sh
           case ros2_knowledge_graph_msgs::msg::GraphUpdate::ADD:
             graph_.add_edge(edge);
 
-            RCLCPP_DEBUG(node_->get_logger(), "[%lf]\t(%s)\tADD EDGE %s",
+            RCLCPP_DEBUG(
+              node_->get_logger(), "[%lf]\t(%s)\tADD EDGE %s",
               rclcpp::Time(ts).seconds(),
               msg->node_id.c_str(), object_data.c_str());
-            last_ts_ = ts;
             break;
 
           case ros2_knowledge_graph_msgs::msg::GraphUpdate::REMOVE:
             graph_.remove_edge(edge);
-            RCLCPP_DEBUG(node_->get_logger(), "[%lf]\t(%s)\tREMOVE NODE %s",
+            RCLCPP_DEBUG(
+              node_->get_logger(), "[%lf]\t(%s)\tREMOVE NODE %s",
               rclcpp::Time(ts).seconds(),
               msg->node_id.c_str(), object_data.c_str());
-            last_ts_ = ts;
             break;
         }
       }
@@ -174,7 +197,8 @@ GraphNode::update_callback(const ros2_knowledge_graph_msgs::msg::GraphUpdate::Sh
       {
         switch (operation) {
           case ros2_knowledge_graph_msgs::msg::GraphUpdate::SYNC:
-            RCLCPP_DEBUG(node_->get_logger(), "[%lf]\t(%s)\tSYNC %s",
+            RCLCPP_DEBUG(
+              node_->get_logger(), "[%lf]\t(%s)\tSYNC %s",
               rclcpp::Time(ts).seconds(),
               msg->node_id.c_str(), object_data.c_str());
 
@@ -186,7 +210,8 @@ GraphNode::update_callback(const ros2_knowledge_graph_msgs::msg::GraphUpdate::Sh
 
           case ros2_knowledge_graph_msgs::msg::GraphUpdate::REQSYNC:
 
-            RCLCPP_DEBUG(node_->get_logger(), "[%lf]\t(%s)\tREQSYNC %s",
+            RCLCPP_DEBUG(
+              node_->get_logger(), "[%lf]\t(%s)\tREQSYNC %s",
               rclcpp::Time(ts).seconds(),
               msg->node_id.c_str(), object_data.c_str());
 
@@ -220,8 +245,11 @@ GraphNode::add_node(const Node & node)
   }
 
   if (graph_.can_add_node(modificable_node)) {
+    graph_.add_node(modificable_node);
+    last_ts_ = node_->now();
+
     ros2_knowledge_graph_msgs::msg::GraphUpdate msg;
-    msg.stamp = node_->now();
+    msg.stamp = last_ts_;
     msg.node_id = node_->get_name();
     msg.operation_type = ros2_knowledge_graph_msgs::msg::GraphUpdate::ADD;
     msg.element_type = ros2_knowledge_graph_msgs::msg::GraphUpdate::NODE;
@@ -231,6 +259,10 @@ GraphNode::add_node(const Node & node)
 
     return true;
   } else {
+    RCLCPP_ERROR(
+      node_->get_logger(), "NCB unable to add Node [%s]",
+      modificable_node.to_string().c_str());
+
     return false;
   }
 }
@@ -245,17 +277,24 @@ GraphNode::remove_node(const std::string node)
   }
 
   if (graph_.can_remove_node(node)) {
+    graph_.remove_node(node);
+    last_ts_ = node_->now();
+
     ros2_knowledge_graph_msgs::msg::GraphUpdate msg;
-    msg.stamp = node_->now();
+    msg.stamp = last_ts_;
     msg.node_id = node_->get_name();
     msg.operation_type = ros2_knowledge_graph_msgs::msg::GraphUpdate::REMOVE;
     msg.element_type = ros2_knowledge_graph_msgs::msg::GraphUpdate::NODE;
-    msg.object = Node{node, "no_type"}.to_string();
+    msg.object = Node{node, ""}.to_string();
 
     update_pub_->publish(msg);
 
     return true;
   } else {
+    RCLCPP_ERROR(
+      node_->get_logger(), "NCB Unable to remove Node [%s]",
+      Node{node, ""}.to_string().c_str());
+
     return false;
   }
 }
@@ -297,8 +336,11 @@ GraphNode::add_edge(const Edge & edge)
   std::lock_guard<std::mutex> lock(mutex_);
 
   if (graph_.can_add_edge(modificable_edge) && !graph_.exist_edge(modificable_edge)) {
+    graph_.add_edge(modificable_edge);
+    last_ts_ = node_->now();
+
     ros2_knowledge_graph_msgs::msg::GraphUpdate msg;
-    msg.stamp = node_->now();
+    msg.stamp = last_ts_;
     msg.node_id = node_->get_name();
     msg.operation_type = ros2_knowledge_graph_msgs::msg::GraphUpdate::ADD;
     msg.element_type = ros2_knowledge_graph_msgs::msg::GraphUpdate::EDGE;
@@ -306,6 +348,10 @@ GraphNode::add_edge(const Edge & edge)
     update_pub_->publish(msg);
     return true;
   } else {
+    RCLCPP_ERROR(
+      node_->get_logger(), "Unable to add Edge [%s]",
+      modificable_edge.to_string().c_str());
+
     return false;
   }
 }
@@ -322,8 +368,11 @@ GraphNode::remove_edge(const Edge & edge)
   }
 
   if (graph_.can_remove_edge(modificable_edge)) {
+    graph_.remove_edge(modificable_edge);
+    last_ts_ = node_->now();
+
     ros2_knowledge_graph_msgs::msg::GraphUpdate msg;
-    msg.stamp = node_->now();
+    msg.stamp = last_ts_;
     msg.node_id = node_->get_name();
     msg.operation_type = ros2_knowledge_graph_msgs::msg::GraphUpdate::REMOVE;
     msg.element_type = ros2_knowledge_graph_msgs::msg::GraphUpdate::EDGE;
@@ -332,6 +381,10 @@ GraphNode::remove_edge(const Edge & edge)
     update_pub_->publish(msg);
     return true;
   } else {
+    RCLCPP_ERROR(
+      node_->get_logger(), "Unable to remove Edge [%s]",
+      modificable_edge.to_string().c_str());
+
     return false;
   }
 }
