@@ -306,7 +306,7 @@ GraphNode::exist_node(const std::string node)
   return graph_.exist_node(node);
 }
 
-std::optional<Node>
+boost::optional<Node>
 GraphNode::get_node(const std::string node)
 {
   std::lock_guard<std::mutex> lock(mutex_);

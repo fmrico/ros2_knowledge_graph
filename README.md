@@ -42,7 +42,7 @@ The complete API of a `ros2_knowledge_graph::GraphNode` is at  [ros2_knowledge_g
   bool add_node(const Node & node);
   bool remove_node(const std::string node);
   bool exist_node(const std::string node);
-  std::optional<Node> get_node(const std::string node);
+  boost::optional<Node> get_node(const std::string node);
 
   bool add_edge(const Edge & edge);
 

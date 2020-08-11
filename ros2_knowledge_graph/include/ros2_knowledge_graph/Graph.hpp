@@ -15,6 +15,8 @@
 #ifndef ROS2_KNOWLEDGE_GRAPH__GRAPH_HPP_
 #define ROS2_KNOWLEDGE_GRAPH__GRAPH_HPP_
 
+#include <boost/optional.hpp>
+
 #include <vector>
 #include <map>
 #include <string>
@@ -37,7 +39,7 @@ public:
   bool can_remove_node(const std::string node);
   bool remove_node(const std::string node);
   bool exist_node(const std::string node);
-  std::optional<Node> get_node(const std::string node);
+  boost::optional<Node> get_node(const std::string node);
 
   bool can_add_edge(const Edge & edge);
   bool add_edge(const Edge & edge);
@@ -45,7 +47,7 @@ public:
   bool remove_edge(const Edge & edge);
   bool exist_edge(const Edge & edge);
 
-  std::optional<std::vector<Edge> *> get_edges(
+  boost::optional<std::vector<Edge> *> get_edges(
     const std::string & source,
     const std::string & target);
 

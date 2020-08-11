@@ -1,13 +1,14 @@
 cmake_minimum_required(VERSION 3.5)
 project(ros2_knowledge_graph)
 
-set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_BUILD_TYPE DEBUG)
 
 find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(ros2_knowledge_graph_msgs REQUIRED)
 find_package(pluginlib REQUIRED)
+
+find_package(Boost 1.65.1 REQUIRED)
 
 set(dependencies
     rclcpp
