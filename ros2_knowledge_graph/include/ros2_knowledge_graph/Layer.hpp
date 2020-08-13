@@ -32,13 +32,13 @@ public:
 
   virtual void configure(rclcpp::Node::SharedPtr & node) {node_ = node;}
 
-  virtual void on_add_node(Node & node) {}
-  virtual void on_remove_node(const std::string node) {}
-  virtual void on_get_node(Node & node) {}
+  virtual void on_add_node(Node &) {}
+  virtual void on_remove_node(const std::string) {}
+  virtual void on_get_node(Node &) {}
 
-  virtual void on_add_edge(Edge & edge) {}
-  virtual void on_remove_edge(Edge & edge) {}
-  virtual void on_get_edge(Edge & edge) {}
+  virtual void on_add_edge(Edge &) {}
+  virtual void on_remove_edge(Edge &) {}
+  virtual void on_get_edge(Edge &) {}
 
 protected:
   rclcpp::Node::SharedPtr node_;

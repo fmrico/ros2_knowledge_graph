@@ -1,7 +1,6 @@
 cmake_minimum_required(VERSION 3.5)
 project(ros2_knowledge_graph_plugins)
 
-set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_BUILD_TYPE DEBUG)
 
 find_package(ament_cmake REQUIRED)

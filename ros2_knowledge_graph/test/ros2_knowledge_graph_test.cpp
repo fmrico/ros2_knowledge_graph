@@ -55,9 +55,13 @@ TEST(ros2_knowledge_graph, graph_operations)
   ASSERT_FALSE(graph.exist_edge(ros2_knowledge_graph::Edge{"is", "symbolic", "r2d2", "kitchen"}));
   ASSERT_TRUE(graph.add_edge(ros2_knowledge_graph::Edge{"is", "symbolic", "r2d2", "kitchen"}));
   ASSERT_TRUE(graph.add_edge(ros2_knowledge_graph::Edge{"is_near", "symbolic", "kitchen", "r2d2"}));
-  ASSERT_TRUE(graph.add_edge(
-      ros2_knowledge_graph::Edge{"is_verynear", "symbolic", "kitchen", "r2d2"}));
-  ASSERT_TRUE(graph.add_edge(ros2_knowledge_graph::Edge{
+  ASSERT_TRUE(
+    graph.add_edge(
+      ros2_knowledge_graph::Edge{
+    "is_verynear", "symbolic", "kitchen", "r2d2"}));
+  ASSERT_TRUE(
+    graph.add_edge(
+      ros2_knowledge_graph::Edge{
     "is_verynear_very", "sympedal", "kitchen", "r2d2"}));
   ASSERT_TRUE(graph.add_edge(ros2_knowledge_graph::Edge{"related", "symbolic", "kitchen", "r2d2"}));
   ASSERT_TRUE(graph.add_edge(ros2_knowledge_graph::Edge{"related", "metric", "kitchen", "r2d2"}));

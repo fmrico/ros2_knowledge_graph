@@ -15,6 +15,8 @@
 #ifndef ROS2_KNOWLEDGE_GRAPH__GRAPHNODE_HPP_
 #define ROS2_KNOWLEDGE_GRAPH__GRAPHNODE_HPP_
 
+#include <boost/optional.hpp>
+
 #include <vector>
 #include <map>
 #include <string>
@@ -45,11 +47,12 @@ public:
   explicit GraphNode(const std::string & provided_node_name);
 
   void start();
+  bool is_started() {return started_;}
 
   bool add_node(const Node & node);
   bool remove_node(const std::string node);
   bool exist_node(const std::string node);
-  std::optional<Node> get_node(const std::string node);
+  boost::optional<Node> get_node(const std::string node);
 
   bool add_edge(const Edge & edge);
 
@@ -70,17 +73,21 @@ public:
 
   std::vector<std::string> get_node_names_by_id(const std::string & expr);
   std::vector<std::string> get_node_names_by_type(const std::string & type);
-  std::vector<Edge> get_edges_from_node(const std::string & node_src_id, const std::string & type);
+  std::vector<Edge> get_edges_from_node(
+    const std::string & node_src_id,
+    const std::string & type = "");
   std::vector<Edge> get_edges_from_node_by_data(
     const std::string & node_src_id,
     const std::string & expr,
-    const std::string & type);
-  std::vector<Edge> get_edges_by_data(const std::string & expr, const std::string & type);
+    const std::string & type = "");
+  std::vector<Edge> get_edges_by_data(const std::string & expr, const std::string & type = "");
 
 protected:
   rclcpp::Node::SharedPtr node_;
 
 private:
+  bool started_;
+
   std::string node_name_;
 
   Graph graph_;
