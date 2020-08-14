@@ -29,6 +29,7 @@
 #include "ros2_knowledge_graph/Layer.hpp"
 
 #include "ros2_knowledge_graph_msgs/msg/graph_update.hpp"
+#include "ros2_knowledge_graph_msgs/srv/graph_update_request.hpp"
 
 #include "rclcpp/rclcpp.hpp"
 #include "pluginlib/class_loader.hpp"
@@ -92,8 +93,8 @@ private:
 
   Graph graph_;
 
-  rclcpp::Publisher<ros2_knowledge_graph_msgs::msg::GraphUpdate>::SharedPtr update_pub_;
   rclcpp::Subscription<ros2_knowledge_graph_msgs::msg::GraphUpdate>::SharedPtr update_sub_;
+  rclcpp::Client<ros2_knowledge_graph_msgs::srv::GraphUpdateRequest>::SharedPtr client_;
 
   void update_callback(const ros2_knowledge_graph_msgs::msg::GraphUpdate::SharedPtr msg);
   mutable std::mutex mutex_;

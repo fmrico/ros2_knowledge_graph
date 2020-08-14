@@ -20,21 +20,40 @@
 #include <random>
 
 #include "ros2_knowledge_graph/GraphNode.hpp"
+#include "ros2_knowledge_graph/GraphMaster.hpp"
+
+#include "ros2_knowledge_graph_msgs/srv/graph_update_request.hpp"
+#include "ros2_knowledge_graph_msgs/msg/graph_update.hpp"
 
 #include "gtest/gtest.h"
 
 
 TEST(ros2_knowledge_graphnode, graph_operations)
 {
+  // std::cerr << "01" << std::endl;
   ros2_knowledge_graph::GraphNode graph("graph");
+  auto master = std::make_shared<ros2_knowledge_graph::GraphMaster>();
+  // std::cerr << "02" << std::endl;
+
+  bool finish = false;
+  auto sync_spin_t_ = std::thread(
+    [&] {
+      while (!finish) rclcpp::spin_some(master);
+    });
+  // std::cerr << "03" << std::endl;
 
   graph.start();
+
+  // std::cerr << "1" << std::endl;
 
   graph.add_node(ros2_knowledge_graph::Node{"paco", "person"});
   ASSERT_TRUE(graph.exist_node("paco"));
   graph.remove_node("paco");
   ASSERT_FALSE(graph.exist_node("paco"));
   ASSERT_EQ(graph.get_num_nodes(), 0);
+
+  // std::cerr << "2" << std::endl;
+
 
   ASSERT_FALSE(graph.exist_node("r2d2"));
   graph.add_node(ros2_knowledge_graph::Node{"r2d2", "robot"});
@@ -43,13 +62,21 @@ TEST(ros2_knowledge_graphnode, graph_operations)
   graph.add_node(ros2_knowledge_graph::Node{"kitchen", "room"});
   ASSERT_TRUE(graph.exist_node("kitchen"));
 
+  // std::cerr << "3" << std::endl;
+
+
   graph.add_node(ros2_knowledge_graph::Node{"room1", "room"});
   graph.add_node(ros2_knowledge_graph::Node{"room2", "room"});
+
+  // std::cerr << "4" << std::endl;
 
   graph.remove_node("r2d2");
   ASSERT_FALSE(graph.exist_node("r2d2"));
   graph.add_node(ros2_knowledge_graph::Node{"r2d2", "robot"});
   ASSERT_TRUE(graph.exist_node("r2d2"));
+
+  // std::cerr << "5" << std::endl;
+
 
   ASSERT_TRUE(graph.add_edge(ros2_knowledge_graph::Edge{"is", "symbolic", "r2d2", "kitchen"}));
   ASSERT_TRUE(graph.exist_edge(ros2_knowledge_graph::Edge{"is", "symbolic", "r2d2", "kitchen"}));
@@ -68,6 +95,9 @@ TEST(ros2_knowledge_graphnode, graph_operations)
   ASSERT_TRUE(graph.add_edge(ros2_knowledge_graph::Edge{"related", "symbolic", "kitchen", "r2d2"}));
   ASSERT_TRUE(graph.add_edge(ros2_knowledge_graph::Edge{"related", "metric", "kitchen", "r2d2"}));
 
+  // std::cerr << "6" << std::endl;
+
+
   ASSERT_EQ(graph.get_node_names_by_id("room[[:alnum:]_]*").size(), 2);
   ASSERT_EQ(graph.get_node_names_by_id("kitchen").size(), 1);
   ASSERT_EQ(graph.get_node_names_by_type("room").size(), 3);
@@ -77,9 +107,14 @@ TEST(ros2_knowledge_graphnode, graph_operations)
   ASSERT_EQ(graph.get_edges_from_node_by_data("kitchen", "is[[:alnum:]_]*", "symbolic").size(), 2);
   ASSERT_EQ(graph.get_edges_by_data("is[[:alnum:]_]*").size(), 4);
 
+  // std::cerr << "6" << std::endl;
+
+
   ASSERT_EQ(graph.get_num_edges(), 6);
   graph.remove_node("r2d2");
   ASSERT_EQ(graph.get_num_edges(), 0);
+
+  // std::cerr << "7" << std::endl;
 
 
   std::string graph_str = graph.to_string();
@@ -87,11 +122,30 @@ TEST(ros2_knowledge_graphnode, graph_operations)
   graph2.from_string(graph_str);
   std::string graph2_str = graph2.to_string();
 
+  // std::cerr << "8" << std::endl;
+
   ASSERT_EQ(graph_str, graph2_str);
+  finish = true;
+
+  // std::cerr << "9" << std::endl;
+
+
+  sync_spin_t_.join();
+
+  // std::cerr << "10" << std::endl;
+
 }
 
 TEST(ros2_knowledge_graphnode, graph_twin)
 {
+  auto master = std::make_shared<ros2_knowledge_graph::GraphMaster>();
+
+  bool finish = false;
+  auto sync_spin_t_ = std::thread(
+    [&] {
+      while (!finish) rclcpp::spin_some(master);
+    });
+
   ros2_knowledge_graph::GraphNode graph("graph");
   ros2_knowledge_graph::GraphNode graph2("graph2");
 
@@ -211,10 +265,21 @@ TEST(ros2_knowledge_graphnode, graph_twin)
   ASSERT_EQ(graph2.get_num_edges(), 0);
 
   ASSERT_EQ(graph.to_string(), graph2.to_string());
+
+  finish = true;
+  sync_spin_t_.join();
 }
 
 TEST(ros2_knowledge_graphnode, graph_stress)
 {
+  auto master = std::make_shared<ros2_knowledge_graph::GraphMaster>();
+
+  bool finish = false;
+  auto sync_spin_t_ = std::thread(
+    [&] {
+      while (!finish) rclcpp::spin_some(master);
+    });
+
   const int NUM_GRAPHS = 10;
   std::vector<std::shared_ptr<ros2_knowledge_graph::GraphNode>> graph_vector(NUM_GRAPHS);
   for (int i = 0; i < NUM_GRAPHS; i++) {
@@ -242,18 +307,18 @@ TEST(ros2_knowledge_graphnode, graph_stress)
     }
 
     switch (type) {
-      case ros2_knowledge_graph_msgs::msg::GraphUpdate::NODE:
+      case ros2_knowledge_graph_msgs::srv::GraphUpdateRequest::Request::NODE:
         switch (operation) {
-          case ros2_knowledge_graph_msgs::msg::GraphUpdate::ADD:
+          case ros2_knowledge_graph_msgs::srv::GraphUpdateRequest::Request::ADD:
             graph_vector[graph_id]->add_node(
               ros2_knowledge_graph::Node{"node_" + std::to_string(node_id), "test"});
             break;
-          case ros2_knowledge_graph_msgs::msg::GraphUpdate::REMOVE:
+          case ros2_knowledge_graph_msgs::srv::GraphUpdateRequest::Request::REMOVE:
             graph_vector[graph_id]->remove_node("node_" + std::to_string(node_id));
             break;
         }
         break;
-      case ros2_knowledge_graph_msgs::msg::GraphUpdate::EDGE:
+      case ros2_knowledge_graph_msgs::srv::GraphUpdateRequest::Request::EDGE:
         if (operation == 0) {
           graph_vector[graph_id]->remove_edge(
             ros2_knowledge_graph::Edge{
@@ -276,6 +341,11 @@ TEST(ros2_knowledge_graphnode, graph_stress)
   for (int i = 1; i < NUM_GRAPHS; i++) {
     ASSERT_EQ(graph_vector[i]->to_string(), graph_vector[0]->to_string());
   }
+
+  std::cerr << graph_vector[0]->to_string() << std::endl;
+
+  finish = true;
+  sync_spin_t_.join();
 }
 
 

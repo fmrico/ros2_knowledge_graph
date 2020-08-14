@@ -21,6 +21,7 @@ include_directories(include)
 set(BICAGRAPH_SOURCES
   src/ros2_knowledge_graph/Graph.cpp
   src/ros2_knowledge_graph/GraphNode.cpp
+  src/ros2_knowledge_graph/GraphMaster.cpp
   src/ros2_knowledge_graph/Types.cpp
 )
 

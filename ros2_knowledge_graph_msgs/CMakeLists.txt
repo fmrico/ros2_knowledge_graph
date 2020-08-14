@@ -7,6 +7,7 @@ find_package(rosidl_default_generators REQUIRED)
 find_package(std_msgs REQUIRED)
 
 rosidl_generate_interfaces(${PROJECT_NAME}
+  "srv/GraphUpdateRequest.srv" 
   "msg/GraphUpdate.msg" 
  DEPENDENCIES builtin_interfaces std_msgs
 )
