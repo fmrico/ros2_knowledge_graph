@@ -6,6 +6,7 @@ set(CMAKE_BUILD_TYPE DEBUG)
 find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(ros2_knowledge_graph_msgs REQUIRED)
+find_package(tf2_geometry_msgs REQUIRED)
 find_package(pluginlib REQUIRED)
 
 find_package(Boost 1.65.1 REQUIRED)
@@ -14,6 +15,7 @@ set(dependencies
     rclcpp
     ros2_knowledge_graph_msgs
     pluginlib
+    tf2_geometry_msgs
 )
 
 include_directories(include)
