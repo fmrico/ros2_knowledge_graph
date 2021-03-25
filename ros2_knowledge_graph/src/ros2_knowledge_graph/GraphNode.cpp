@@ -406,15 +406,6 @@ GraphNode::get_edges(
 {
   std::lock_guard<std::mutex> lock(mutex_);
 
-  // Edge search_edge {"", type, source, target};
-  // for (const auto & layer_id : layer_ids_) {
-  //   layers_[layer_id]->on_get_edge(search_edge);
-  // }
-
-  // if (search_edge.content != "") {
-  //   result.push_back(search_edge); 
-  // }
-
   auto opt_edges = graph_.get_edges(source, target);
 
   std::vector<Edge> edges;
