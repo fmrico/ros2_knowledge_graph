@@ -347,12 +347,14 @@ GraphNode::add_edge(const Edge & edge)
     msg.object = modificable_edge.to_string();
     update_pub_->publish(msg);
     return true;
-  } else {
+  } else if (!graph_.can_add_edge(modificable_edge)) {
     RCLCPP_ERROR(
       node_->get_logger(), "Unable to add Edge [%s]",
       modificable_edge.to_string().c_str());
 
     return false;
+  } else {
+    return true;
   }
 }
 
@@ -403,6 +405,7 @@ GraphNode::get_edges(
   const std::string & type, std::vector<Edge> & result)
 {
   std::lock_guard<std::mutex> lock(mutex_);
+
   auto opt_edges = graph_.get_edges(source, target);
 
   std::vector<Edge> edges;

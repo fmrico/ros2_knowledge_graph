@@ -20,6 +20,9 @@
 #include <tf2_ros/static_transform_broadcaster.h>
 
 #include <memory>
+#include <optional>
+
+#include "geometry_msgs/msg/transform_stamped.hpp"
 
 #include "ros2_knowledge_graph/Layer.hpp"
 
@@ -42,6 +45,11 @@ private:
   std::shared_ptr<tf2_ros::StaticTransformBroadcaster> static_tf_broadcaster_;
   std::shared_ptr<tf2::BufferCore> tfBuffer_;
 };
+
+std::optional<geometry_msgs::msg::TransformStamped> to_transform(
+  const std::string & transform_str, const std::string & source,
+  const std::string & target, rclcpp::Node::SharedPtr & node);
+std::string from_transform(const geometry_msgs::msg::TransformStamped  & transform);
 
 }  // namespace ros2_kg_tf_plugin
 
