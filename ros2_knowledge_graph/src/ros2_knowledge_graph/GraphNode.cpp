@@ -86,8 +86,8 @@ GraphNode::start()
     });
   sync_spin_t_.detach();
 
-  RCLCPP_DEBUG(node_->get_logger(), "Waiting 1 seconds for a complete startup...");
-  rclcpp::sleep_for(std::chrono::seconds(1));
+  RCLCPP_DEBUG(node_->get_logger(), "Waiting 2 seconds for a complete startup...");
+  rclcpp::sleep_for(std::chrono::seconds(2));
   RCLCPP_DEBUG(node_->get_logger(), "Starting");
 
 
