@@ -86,8 +86,8 @@ GraphNode::start()
     });
   sync_spin_t_.detach();
 
-  RCLCPP_DEBUG(node_->get_logger(), "Waiting 2 seconds for a complete startup...");
-  rclcpp::sleep_for(std::chrono::seconds(2));
+  RCLCPP_DEBUG(node_->get_logger(), "Waiting 1 seconds for a complete startup...");
+  rclcpp::sleep_for(std::chrono::seconds(1));
   RCLCPP_DEBUG(node_->get_logger(), "Starting");
 
 
@@ -347,12 +347,14 @@ GraphNode::add_edge(const Edge & edge)
     msg.object = modificable_edge.to_string();
     update_pub_->publish(msg);
     return true;
-  } else {
+  } else if (!graph_.can_add_edge(modificable_edge)) {
     RCLCPP_ERROR(
       node_->get_logger(), "Unable to add Edge [%s]",
       modificable_edge.to_string().c_str());
 
     return false;
+  } else {
+    return true;
   }
 }
 
@@ -403,6 +405,16 @@ GraphNode::get_edges(
   const std::string & type, std::vector<Edge> & result)
 {
   std::lock_guard<std::mutex> lock(mutex_);
+
+  // Edge search_edge {"", type, source, target};
+  // for (const auto & layer_id : layer_ids_) {
+  //   layers_[layer_id]->on_get_edge(search_edge);
+  // }
+
+  // if (search_edge.content != "") {
+  //   result.push_back(search_edge); 
+  // }
+
   auto opt_edges = graph_.get_edges(source, target);
 
   std::vector<Edge> edges;

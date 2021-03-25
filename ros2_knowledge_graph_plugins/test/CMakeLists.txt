@@ -1,0 +1,3 @@
+ament_add_gtest(ros2_kg_tf_test ros2_kg_tf_test.cpp)
+ament_target_dependencies(ros2_kg_tf_test ${dependencies})
+target_link_libraries(ros2_kg_tf_test TFLayer)
