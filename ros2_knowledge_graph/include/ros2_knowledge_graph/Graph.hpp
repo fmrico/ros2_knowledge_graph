@@ -39,7 +39,7 @@ public:
   bool can_remove_node(const std::string node);
   bool remove_node(const std::string node);
   bool exist_node(const std::string node);
-  boost::optional<Node> get_node(const std::string node);
+  boost::optional<Node &> get_node(const std::string node);
 
   bool can_add_edge(const Edge & edge);
   bool add_edge(const Edge & edge);
