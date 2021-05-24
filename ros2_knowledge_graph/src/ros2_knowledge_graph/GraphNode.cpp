@@ -306,7 +306,7 @@ GraphNode::exist_node(const std::string node)
   return graph_.exist_node(node);
 }
 
-boost::optional<Node>
+boost::optional<Node &>
 GraphNode::get_node(const std::string node)
 {
   std::lock_guard<std::mutex> lock(mutex_);
@@ -314,11 +314,10 @@ GraphNode::get_node(const std::string node)
   auto opt_node = graph_.get_node(node);
 
   if (opt_node.has_value()) {
-    Node modificable_node = opt_node.value();
     for (const auto & layer_id : layer_ids_) {
-      layers_[layer_id]->on_get_node(modificable_node);
+      layers_[layer_id]->on_get_node(opt_node.value());
     }
-    return modificable_node;
+    return opt_node;
   } else {
     return {};
   }

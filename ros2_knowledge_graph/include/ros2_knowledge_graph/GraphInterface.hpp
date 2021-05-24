@@ -35,7 +35,7 @@ public:
   virtual bool add_node(const Node & node) = 0;
   virtual bool remove_node(const std::string node) = 0;
   virtual bool exist_node(const std::string node) = 0;
-  virtual boost::optional<Node> get_node(const std::string node) = 0;
+  virtual boost::optional<Node &> get_node(const std::string node) = 0;
 
   virtual bool add_edge(const Edge & edge) = 0;
   virtual bool remove_edge(const Edge & edge) = 0;

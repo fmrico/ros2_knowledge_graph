@@ -20,6 +20,7 @@
 #include <assert.h>
 #include <string>
 #include <vector>
+#include <map>
 
 namespace ros2_knowledge_graph
 {
@@ -31,17 +32,30 @@ struct Node
   std::string name;
   std::string type;
 
+  std::map<std::string, std::string> properties {};
+
   std::string to_string() const
   {
-    return "node::" + name + "::" + type;
+    std::string ret;
+    ret = "node::" + name + "::" + type;
+
+    for (const auto & property : properties) {
+      ret = ret + "::" + property.first + ":" + property.second;
+    }
+
+    return ret;
   }
 
   void from_string(const std::string & node_str)
   {
     auto tokens = tokenize(node_str, "::");
-    assert(tokens.size() == 3);
     name = tokens[1];
     type = tokens[2];
+
+    for (int i = 3; i < tokens.size(); i++) {
+      auto prop_token = tokenize(tokens[i], ":");
+      properties[prop_token[0]] = prop_token[1];
+    }
   }
 };
 

@@ -98,7 +98,10 @@ TEST(ros2_knowledge_graphnode, graph_twin)
   graph.start();
   graph2.start();
 
-  graph.add_node(ros2_knowledge_graph::Node{"paco", "person"});
+  graph.add_node(
+    ros2_knowledge_graph::Node{"paco", "person", {{"mobile", "555-456"}, {"age", "42"}}});
+
+  graph.get_node("paco").value().properties["gender"] = "male";
 
   auto test_node = rclcpp::Node::make_shared("test_node");
   auto start = test_node->now();
@@ -106,6 +109,9 @@ TEST(ros2_knowledge_graphnode, graph_twin)
 
   ASSERT_TRUE(graph.exist_node("paco"));
   ASSERT_TRUE(graph2.exist_node("paco"));
+
+  ASSERT_EQ(graph2.get_node("paco").value().properties["age"], "42");
+  ASSERT_EQ(graph2.get_node("paco").value().properties["gender"], "male");
 
   graph.remove_node("paco");
   start = test_node->now();

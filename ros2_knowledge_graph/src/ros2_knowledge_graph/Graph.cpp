@@ -89,7 +89,7 @@ Graph::exist_node(const std::string node)
   return nodes_.find(node) != nodes_.end();
 }
 
-boost::optional<Node>
+boost::optional<Node &>
 Graph::get_node(const std::string node)
 {
   if (exist_node(node)) {
