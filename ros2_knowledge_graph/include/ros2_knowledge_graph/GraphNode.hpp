@@ -107,6 +107,26 @@ private:
   std::string layer_ids_concat_, current_layer_;
 };
 
+class GraphFactory
+{
+public:
+  static std::shared_ptr<GraphNode> getInstance(const std::string & provided_node_name)
+  {
+    if (instance_ == nullptr) {
+      instance_ = std::make_shared<GraphNode>(provided_node_name);
+      instance_->start();
+    }
+    
+    return instance_;
+  }
+
+private:
+  static std::shared_ptr<GraphNode> instance_;
+};
+
+std::shared_ptr<GraphNode> GraphFactory::instance_ = nullptr;
+
+
 }  // namespace ros2_knowledge_graph
 
 #endif  // ROS2_KNOWLEDGE_GRAPH__GRAPHNODE_HPP_

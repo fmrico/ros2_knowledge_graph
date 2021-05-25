@@ -285,9 +285,41 @@ TEST(ros2_knowledge_graphnode, graph_stress)
 }
 
 
+TEST(ros2_knowledge_graphnode, graph_singleton)
+{
+  std::shared_ptr<ros2_knowledge_graph::GraphNode> graph1 =
+    ros2_knowledge_graph::GraphFactory::getInstance("graph");
+
+  auto graph2 =
+    ros2_knowledge_graph::GraphFactory::getInstance("graph");
+
+  auto graph3 =
+    ros2_knowledge_graph::GraphFactory::getInstance("graph");
+
+  ASSERT_EQ(graph1, graph2);
+  ASSERT_EQ(graph1, graph3);
+
+//  ros2_knowledge_graph::GraphNode graph_other("other");
+//  graph_other.start();
+//
+  auto test_node = rclcpp::Node::make_shared("test_node");
+
+  auto start = test_node->now();
+  while ((test_node->now() - start).seconds() < 1.0) {}
+
+  graph1->add_node(
+    ros2_knowledge_graph::Node{"paco", "person"});
+
+  start = test_node->now();
+  while ((test_node->now() - start).seconds() < 1.0) {}
+
+//   ASSERT_TRUE(graph_other.exist_node("paco"));
+}
+
 int main(int argc, char ** argv)
 {
   rclcpp::init(argc, argv);
   testing::InitGoogleTest(&argc, argv);
+
   return RUN_ALL_TESTS();
 }
