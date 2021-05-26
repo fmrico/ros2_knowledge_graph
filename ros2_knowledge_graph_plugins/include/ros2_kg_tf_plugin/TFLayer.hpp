@@ -15,12 +15,14 @@
 #ifndef ROS2_KG_TF_PLUGIN__TFLAYER_HPP_
 #define ROS2_KG_TF_PLUGIN__TFLAYER_HPP_
 
+#include <optional>
+
 #include <tf2_ros/transform_listener.h>
 #include <tf2_ros/transform_broadcaster.h>
 #include <tf2_ros/static_transform_broadcaster.h>
 
 #include <memory>
-#include <optional>
+#include <string>
 
 #include "geometry_msgs/msg/transform_stamped.hpp"
 
@@ -49,7 +51,7 @@ private:
 std::optional<geometry_msgs::msg::TransformStamped> to_transform(
   const std::string & transform_str, const std::string & source,
   const std::string & target, rclcpp::Node::SharedPtr & node);
-std::string from_transform(const geometry_msgs::msg::TransformStamped  & transform);
+std::string from_transform(const geometry_msgs::msg::TransformStamped & transform);
 
 }  // namespace ros2_kg_tf_plugin
 

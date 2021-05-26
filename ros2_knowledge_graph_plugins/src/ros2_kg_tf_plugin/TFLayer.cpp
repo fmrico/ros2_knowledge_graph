@@ -57,7 +57,7 @@ TFLayer::on_add_edge(ros2_knowledge_graph::Edge & edge)
 {
   if (edge.type == "tf" || edge.type == "tf_static") {
     const auto & msg = to_transform(edge.content, edge.source, edge.target, node_);
-    
+
     if (msg) {
       if (edge.type == "tf") {
         tf_broadcaster_->sendTransform(msg.value());
@@ -79,9 +79,9 @@ TFLayer::on_get_edge(ros2_knowledge_graph::Edge & edge)
       tf = tfBuffer_->lookupTransform(edge.source, edge.target, tf2::TimePointZero);
 
       edge.content = from_transform(tf);
-
     } catch (std::exception & e) {
-      RCLCPP_WARN(node_->get_logger(),
+      RCLCPP_WARN(
+        node_->get_logger(),
         "TFLayer  [%s, %s]not connected by TFs or not valid now",
         edge.source.c_str(), edge.target.c_str());
     }
@@ -95,28 +95,28 @@ std::optional<geometry_msgs::msg::TransformStamped> to_transform(
   std::vector<std::string> values = ros2_knowledge_graph::tokenize(transform_str, ":");
 
   if (values.size() == 6) {
-      double x = std::stod(values[0]);
-      double y = std::stod(values[1]);
-      double z = std::stod(values[2]);
-      double r = std::stod(values[3]);
-      double p = std::stod(values[4]);
-      double yw = std::stod(values[5]);
+    double x = std::stod(values[0]);
+    double y = std::stod(values[1]);
+    double z = std::stod(values[2]);
+    double r = std::stod(values[3]);
+    double p = std::stod(values[4]);
+    double yw = std::stod(values[5]);
 
-      geometry_msgs::msg::TransformStamped msg;
-      msg.header.frame_id = source;
-      msg.header.stamp = node->now();
-      msg.child_frame_id = target;
-      msg.transform.translation.x = x;
-      msg.transform.translation.y = y;
-      msg.transform.translation.z = z;
-      tf2::Quaternion q;
-      q.setEuler(yw, p, r);
-      msg.transform.rotation.x = q.x();
-      msg.transform.rotation.y = q.y();
-      msg.transform.rotation.z = q.z();
-      msg.transform.rotation.w = q.w();
+    geometry_msgs::msg::TransformStamped msg;
+    msg.header.frame_id = source;
+    msg.header.stamp = node->now();
+    msg.child_frame_id = target;
+    msg.transform.translation.x = x;
+    msg.transform.translation.y = y;
+    msg.transform.translation.z = z;
+    tf2::Quaternion q;
+    q.setEuler(yw, p, r);
+    msg.transform.rotation.x = q.x();
+    msg.transform.rotation.y = q.y();
+    msg.transform.rotation.z = q.z();
+    msg.transform.rotation.w = q.w();
 
-      return msg;
+    return msg;
   } else {
     RCLCPP_WARN(
       node->get_logger(), "Error parsing TF [%s]. Use x:y:z:roll:pitch:yaw",
@@ -139,7 +139,7 @@ std::string from_transform(const geometry_msgs::msg::TransformStamped & transfor
   ret = std::to_string(t.x) + ":" + std::to_string(t.y) + ":" +
     std::to_string(t.z) + ":" + std::to_string(roll) + ":" +
     std::to_string(pitch) + ":" + std::to_string(yaw);
-  
+
   return ret;
 }
 

@@ -38,11 +38,14 @@ TEST(ros2_knowledge_graphnode, tf_edges)
   graph.add_node(ros2_knowledge_graph::Node{"room1", "room"});
 
   ASSERT_TRUE(graph.add_edge(ros2_knowledge_graph::Edge{"1:0:0:0:0:0", "tf", "room1", "paco"}));
-  ASSERT_TRUE(graph.add_edge(ros2_knowledge_graph::Edge{"2:0:0:0:0:0", "tf_static", "room1", "r2d2"}));
+  ASSERT_TRUE(
+    graph.add_edge(
+      ros2_knowledge_graph::Edge{"2:0:0:0:0:0", "tf_static", "room1",
+        "r2d2"}));
 
   {
     auto start = test_node->now();
-    while ((test_node->now() - start).seconds() < 2.0);
+    while ((test_node->now() - start).seconds() < 2.0) {}
   }
 
   std::vector<ros2_knowledge_graph::Edge> tf_edges;
@@ -93,7 +96,8 @@ TEST(ros2_knowledge_graphnode, tf_edges)
     ASSERT_EQ(tf.transform.rotation.z, 0.0);
     ASSERT_EQ(tf.transform.rotation.w, 1.0);
   }
-}  
+}
+
 int main(int argc, char ** argv)
 {
   rclcpp::init(argc, argv);

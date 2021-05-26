@@ -46,6 +46,8 @@ public:
 
   explicit GraphNode(const std::string & provided_node_name);
 
+  // ~GraphNode();
+
   void start();
   bool is_started() {return started_;}
 
@@ -110,21 +112,21 @@ private:
 class GraphFactory
 {
 public:
-  static std::shared_ptr<GraphNode> getInstance(const std::string & provided_node_name)
+  static GraphNode * getInstance(const std::string & provided_node_name)
   {
     if (instance_ == nullptr) {
-      instance_ = std::make_shared<GraphNode>(provided_node_name);
+      instance_ = new GraphNode(provided_node_name);
       instance_->start();
     }
-    
+
     return instance_;
   }
 
 private:
-  static std::shared_ptr<GraphNode> instance_;
+  static GraphNode * instance_;
 };
 
-std::shared_ptr<GraphNode> GraphFactory::instance_ = nullptr;
+GraphNode * GraphFactory::instance_ = nullptr;
 
 
 }  // namespace ros2_knowledge_graph
