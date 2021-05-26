@@ -46,8 +46,6 @@ public:
 
   explicit GraphNode(const std::string & provided_node_name);
 
-  // ~GraphNode();
-
   void start();
   bool is_started() {return started_;}
 
