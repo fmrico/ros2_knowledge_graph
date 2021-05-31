@@ -20,13 +20,13 @@ set(dependencies
 
 include_directories(include)
 
-set(BICAGRAPH_SOURCES
+set(ROS2GRAPH_SOURCES
   src/ros2_knowledge_graph/Graph.cpp
   src/ros2_knowledge_graph/GraphNode.cpp
   src/ros2_knowledge_graph/Types.cpp
 )
 
-add_library(${PROJECT_NAME} SHARED ${BICAGRAPH_SOURCES})
+add_library(${PROJECT_NAME} SHARED ${ROS2GRAPH_SOURCES})
 ament_target_dependencies(${PROJECT_NAME} ${dependencies})
 
 add_executable(graph_terminal src/graph_terminal.cpp)

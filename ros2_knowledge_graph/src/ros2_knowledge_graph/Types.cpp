@@ -14,6 +14,8 @@
 
 #include <string>
 #include <vector>
+#include <algorithm>
+#include <cctype>
 
 #include "ros2_knowledge_graph/Types.hpp"
 
@@ -41,5 +43,68 @@ bool operator==(const Edge & op1, const Edge & op2)
 {
   return op1.content == op2.content && op1.type == op2.type;
 }
+
+std::string to_property(std::vector<double> values)
+{
+  if (values.empty()) {
+    return "";
+  }
+
+  std::string ret = std::to_string(values[0]);
+  for (int i = 1; i < values.size(); i++) {
+    ret = ret + ", " + std::to_string(values[i]);
+  }
+
+  return ret;
+}
+
+std::string to_property(bool value)
+{
+  if (value) {
+    return "True";
+  } else {
+    return "False";
+  }
+}
+
+std::string to_property(int value)
+{
+  return std::to_string(value);
+}
+
+std::string to_property(double value)
+{
+  return std::to_string(value);
+}
+
+std::vector<double> property_as_vector(const std::string & property)
+{
+  std::vector<double> ret;
+  auto tokens = tokenize(property, ",");
+  for (const auto & token : tokens) {
+    ret.push_back(atof(token.c_str()));
+  }
+  return ret;
+}
+
+bool property_as_bool(const std::string & property)
+{
+  std::string low;
+  std::transform(property.begin(), property.end(), low.begin(),
+    [](unsigned char c){ return std::tolower(c); });
+
+  return low == "true";
+}
+
+int property_as_int(const std::string & property)
+{
+  return atoi(property.c_str());
+}
+
+double property_as_double(const std::string & property)
+{
+  return atof(property.c_str());
+}
+
 
 }  // namespace ros2_knowledge_graph

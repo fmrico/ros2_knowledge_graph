@@ -27,6 +27,16 @@ namespace ros2_knowledge_graph
 
 std::vector<std::string> tokenize(const std::string & text, const std::string & delim);
 
+std::string to_property(std::vector<double> values);
+std::string to_property(bool value);
+std::string to_property(int value);
+std::string to_property(float value);
+
+std::vector<double> property_as_vector(const std::string & property);
+bool property_as_bool(const std::string & property);
+int property_as_int(const std::string & property);
+double property_as_float(const std::string & property);
+
 struct Node
 {
   std::string name;
