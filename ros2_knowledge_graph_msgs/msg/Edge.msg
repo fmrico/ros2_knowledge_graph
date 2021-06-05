@@ -1,0 +1,4 @@
+string source_node_id
+string target_node_id
+
+ros2_knowledge_graph_msgs/Content content
