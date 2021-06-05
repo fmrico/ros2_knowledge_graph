@@ -13,6 +13,7 @@ rosidl_generate_interfaces(${PROJECT_NAME}
   "msg/Node.msg"
   "msg/Edge.msg"
   "msg/Graph.msg"
+  "msg/GraphUpdate.msg"
  DEPENDENCIES builtin_interfaces std_msgs geometry_msgs
 )
 

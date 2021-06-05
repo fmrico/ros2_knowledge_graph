@@ -31,11 +31,11 @@ class GraphNode
 public:
   explicit GraphNode(rclcpp::Node::SharedPtr provided_node);
 
-  bool remove_node(const std::string node);
+  bool remove_node(const std::string node, bool sync = true);
   bool exist_node(const std::string node);
   std::optional<ros2_knowledge_graph_msgs::msg::Node> get_node(const std::string node);
 
-  bool remove_edge(const ros2_knowledge_graph_msgs::msg::Edge & edge);
+  bool remove_edge(const ros2_knowledge_graph_msgs::msg::Edge & edge, bool sync = true);
   std::vector<ros2_knowledge_graph_msgs::msg::Edge> get_edges(
     const std::string & source, const std::string & target, uint8_t type);
 
@@ -53,19 +53,20 @@ public:
   size_t get_num_edges() const;
   size_t get_num_nodes() const;
 
-  void updateNode(const ros2_knowledge_graph_msgs::msg::Node & node);
-  bool updateEdge(const ros2_knowledge_graph_msgs::msg::Edge & edge);
+  void update_node(const ros2_knowledge_graph_msgs::msg::Node & node, bool sync = true);
+  bool update_edge(const ros2_knowledge_graph_msgs::msg::Edge & edge, bool sync = true);
 
 protected:
   rclcpp::Node::SharedPtr node_;
   ros2_knowledge_graph_msgs::msg::Graph::UniquePtr graph_;
+  std::string graph_id_;
+  rclcpp::Time last_ts_;
 
-  void publish_graph();
   void publish_tf(const geometry_msgs::msg::TransformStamped & transform);
-  void graph_callback(ros2_knowledge_graph_msgs::msg::Graph::UniquePtr msg);
+  void update_callback(ros2_knowledge_graph_msgs::msg::GraphUpdate::UniquePtr msg);
 private:
-  rclcpp::Publisher<ros2_knowledge_graph_msgs::msg::Graph>::SharedPtr graph_pub_;
-  rclcpp::Subscription<ros2_knowledge_graph_msgs::msg::Graph>::SharedPtr graph_sub_;
+  rclcpp::Publisher<ros2_knowledge_graph_msgs::msg::GraphUpdate>::SharedPtr update_pub_;
+  rclcpp::Subscription<ros2_knowledge_graph_msgs::msg::GraphUpdate>::SharedPtr update_sub_;
 };
 
 template<>

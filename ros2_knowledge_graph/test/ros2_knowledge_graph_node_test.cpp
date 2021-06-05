@@ -12,9 +12,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include <random>
+#include <memory>
+#include <string>
+#include <vector>
+
 #include "ros2_knowledge_graph_msgs/msg/graph.hpp"
 #include "ros2_knowledge_graph_msgs/msg/node.hpp"
 #include "ros2_knowledge_graph_msgs/msg/edge.hpp"
+#include "ros2_knowledge_graph_msgs/msg/graph_update.hpp"
 
 #include "ros2_knowledge_graph/GraphNode.hpp"
 #include "ros2_knowledge_graph/graph_utils.hpp"
@@ -32,7 +38,7 @@ public:
 
   const ros2_knowledge_graph_msgs::msg::Graph & get_graph() {return *graph_;}
 };
-/*
+
 TEST(ros2_knowledge_graphnode, graph_operations)
 {
   auto test_node = rclcpp::Node::make_shared("test_node");
@@ -41,7 +47,7 @@ TEST(ros2_knowledge_graphnode, graph_operations)
   auto node_1 = ros2_knowledge_graph::new_node("r2d2", "robot");
   ASSERT_TRUE(graph_node.get_graph().nodes.empty());
 
-  graph_node.updateNode(node_1);
+  graph_node.update_node(node_1);
 
   ASSERT_FALSE(graph_node.get_graph().nodes.empty());
   ASSERT_EQ(graph_node.get_graph().nodes.size(), 1u);
@@ -56,9 +62,9 @@ TEST(ros2_knowledge_graphnode, graph_operations)
   ASSERT_EQ(graph_node.get_nodes().size(), 0);
   ASSERT_EQ(graph_node.get_node_names().size(), 0);
 
-  graph_node.updateNode(node_1);
+  graph_node.update_node(node_1);
   auto node_2 = ros2_knowledge_graph::new_node("paco", "person");
-  graph_node.updateNode(node_2);
+  graph_node.update_node(node_2);
 
   ASSERT_FALSE(graph_node.get_graph().nodes.empty());
   ASSERT_EQ(graph_node.get_graph().nodes.size(), 2u);
@@ -71,7 +77,7 @@ TEST(ros2_knowledge_graphnode, graph_operations)
   ASSERT_TRUE(ros2_knowledge_graph::get_properties(node_1_ret).empty());
   ros2_knowledge_graph::add_property(node_1_ret, "wheels", 2);
   ros2_knowledge_graph::add_property(node_1_ret, "wheels", 4);
-  graph_node.updateNode(node_1_ret);
+  graph_node.update_node(node_1_ret);
 
 
   ASSERT_FALSE(graph_node.get_graph().nodes.empty());
@@ -97,7 +103,7 @@ TEST(ros2_knowledge_graphnode, graph_operations)
   ASSERT_EQ(graph_node.get_num_nodes(), 2);
 
   auto edge_1 = ros2_knowledge_graph::new_edge<std::string>("r2d2", "paco", "talks");
-  graph_node.updateEdge(edge_1);
+  graph_node.update_edge(edge_1);
 
   ASSERT_EQ(graph_node.get_num_edges(), 1);
 
@@ -117,7 +123,7 @@ TEST(ros2_knowledge_graphnode, graph_operations)
   ASSERT_EQ(content_edge_1_ret_1.value(), "talks");
 
   auto edge_2 = ros2_knowledge_graph::new_edge<std::string>("r2d2", "paco", "sees");
-  graph_node.updateEdge(edge_2);
+  graph_node.update_edge(edge_2);
 
   ASSERT_EQ(graph_node.get_num_edges(), 2);
   auto edge_2_ret_1 = graph_node.get_edges<std::string>("r2d2", "paco");
@@ -134,9 +140,9 @@ TEST(ros2_knowledge_graphnode, graph_operations)
   ASSERT_EQ(graph_node.get_num_edges(), 2);
 
   auto edge_int_1 = ros2_knowledge_graph::new_edge("r2d2", "paco", 1);
-  graph_node.updateEdge(edge_int_1);
+  graph_node.update_edge(edge_int_1);
   auto edge_int_2 = ros2_knowledge_graph::new_edge("r2d2", "paco", 2);
-  graph_node.updateEdge(edge_int_2);
+  graph_node.update_edge(edge_int_2);
 
   ASSERT_EQ(graph_node.get_num_edges(), 3);
   auto edges_ret_1 = graph_node.get_edges<int>("r2d2", "paco");
@@ -154,9 +160,9 @@ TEST(ros2_knowledge_graphnode, graph_operations)
   geometry_msgs::msg::TransformStamped tf1;
   tf1.transform.translation.x = 7.0;
   auto edge_tf_1 = ros2_knowledge_graph::new_edge("r2d2", "paco", tf1);
-  graph_node.updateEdge(edge_tf_1);
+  graph_node.update_edge(edge_tf_1);
   auto edge_tf_2 = ros2_knowledge_graph::new_edge("r2d2", "paco", tf1);
-  graph_node.updateEdge(edge_tf_2);
+  graph_node.update_edge(edge_tf_2);
 
   ASSERT_EQ(graph_node.get_num_edges(), 4);
 
@@ -177,7 +183,7 @@ TEST(ros2_knowledge_graphnode, graph_operations)
   graph_node.remove_node("r2d2");
   ASSERT_EQ(graph_node.get_num_edges(), 0);
 }
-*/
+
 TEST(ros2_knowledge_graphnode, graph_comms)
 {
   auto node1 = rclcpp::Node::make_shared("test_node_1");
@@ -202,7 +208,7 @@ TEST(ros2_knowledge_graphnode, graph_comms)
   }
 
   auto node_1 = ros2_knowledge_graph::new_node("r2d2", "robot");
-  graph_1.updateNode(node_1);
+  graph_1.update_node(node_1);
 
   {
     auto start = node1->now();
@@ -214,7 +220,7 @@ TEST(ros2_knowledge_graphnode, graph_comms)
   ASSERT_TRUE(graph_3.exist_node("r2d2"));
 
   auto node_2 = ros2_knowledge_graph::new_node("paco", "person");
-  graph_3.updateNode(node_2);
+  graph_3.update_node(node_2);
 
   {
     auto start = node1->now();
@@ -226,7 +232,7 @@ TEST(ros2_knowledge_graphnode, graph_comms)
   ASSERT_TRUE(graph_3.exist_node("paco"));
 
   ros2_knowledge_graph::add_property(node_2, "age", 42);
-  graph_2.updateNode(node_2);
+  graph_2.update_node(node_2);
 
   {
     auto start = node1->now();
@@ -246,14 +252,9 @@ TEST(ros2_knowledge_graphnode, graph_comms)
   ASSERT_EQ(p_age_2_3.value(), 42);
 
   auto node_table = ros2_knowledge_graph::new_node("table1", "table");
-  graph_3.updateNode(node_table);
-  {
-    auto start = node1->now();
-    while ((node1->now() - start).seconds() < 0.1) {}
-  }
-
+  graph_3.update_node(node_table);
   auto edge_sees = ros2_knowledge_graph::new_edge<std::string>("r2d2", "paco", "sees");
-  graph_1.updateEdge(edge_sees);
+  graph_1.update_edge(edge_sees);
 
   {
     auto start = node1->now();
@@ -273,6 +274,7 @@ TEST(ros2_knowledge_graphnode, graph_comms)
   ASSERT_EQ(edges_sees_3.size(), 1);
 
   graph_1.remove_node("table1");
+  GraphTest graph_4(node2);
 
   {
     auto start = node1->now();
@@ -282,12 +284,94 @@ TEST(ros2_knowledge_graphnode, graph_comms)
   ASSERT_EQ(graph_1.get_num_nodes(), 2);
   ASSERT_EQ(graph_2.get_num_nodes(), 2);
   ASSERT_EQ(graph_3.get_num_nodes(), 2);
+  ASSERT_EQ(graph_4.get_num_nodes(), 2);
+
+  ASSERT_EQ(graph_1.get_graph(), graph_2.get_graph());
+  ASSERT_EQ(graph_1.get_graph(), graph_3.get_graph());
+  ASSERT_EQ(graph_1.get_graph(), graph_4.get_graph());
 
   finish = true;
   t.join();
 }
 
+TEST(ros2_knowledge_graphnode, graph_stress)
+{
+  auto node1 = rclcpp::Node::make_shared("test_node_1");
 
+  rclcpp::executors::SingleThreadedExecutor exe;
+  exe.add_node(node1);
+
+  bool finish = false;
+  std::thread t([&]() {
+      while (!finish) {exe.spin_some();}
+    });
+
+  const int NUM_GRAPHS = 10;
+  std::vector<std::shared_ptr<GraphTest>> graph_vector(NUM_GRAPHS);
+  for (int i = 0; i < NUM_GRAPHS; i++) {
+    graph_vector[i] = std::make_shared<GraphTest>(node1);
+  }
+
+  auto test_node = rclcpp::Node::make_shared("test_node");
+  std::default_random_engine generator;
+  std::uniform_int_distribution<int> graph_dist(0, NUM_GRAPHS - 1);
+  std::uniform_int_distribution<int> node_dist(1, 10);
+  std::uniform_int_distribution<uint8_t> op_dist(0, 5);
+  std::uniform_int_distribution<uint8_t> type_dist(0, 1);
+
+  rclcpp::Rate rate(200);
+  auto start = test_node->now();
+  while (rclcpp::ok() && (test_node->now() - start).seconds() < 40) {
+    uint8_t type = type_dist(generator);
+    uint8_t operation = op_dist(generator);
+    int graph_id = graph_dist(generator);
+    int node_id = node_dist(generator);
+
+    switch (type) {
+      case ros2_knowledge_graph_msgs::msg::GraphUpdate::NODE:
+        switch (operation) {
+          case ros2_knowledge_graph_msgs::msg::GraphUpdate::UPDATE:
+            {
+              ros2_knowledge_graph_msgs::msg::Node node;
+              node.node_name = "node_" + std::to_string(node_id);
+              node.node_class = "test";
+              graph_vector[graph_id]->update_node(node);
+            }
+            break;
+          case ros2_knowledge_graph_msgs::msg::GraphUpdate::REMOVE:
+            graph_vector[graph_id]->remove_node("node_" + std::to_string(node_id));
+            break;
+        }
+        break;
+      case ros2_knowledge_graph_msgs::msg::GraphUpdate::EDGE:
+        if (operation == 0) {
+          ros2_knowledge_graph_msgs::msg::Edge edge;
+          edge.source_node_id = "node_" + std::to_string(node_dist(generator));
+          edge.target_node_id = "node_" + std::to_string(node_dist(generator));
+          edge.content.type = ros2_knowledge_graph_msgs::msg::Content::BOOL;
+
+          graph_vector[graph_id]->remove_edge(edge);
+        } else {
+          ros2_knowledge_graph_msgs::msg::Edge edge;
+          edge.source_node_id = "node_" + std::to_string(node_dist(generator));
+          edge.target_node_id = "node_" + std::to_string(node_dist(generator));
+          edge.content.type = ros2_knowledge_graph_msgs::msg::Content::BOOL;
+
+          graph_vector[graph_id]->update_edge(edge);
+        }
+        break;
+    }
+
+    rate.sleep();
+  }
+
+  for (int i = 1; i < NUM_GRAPHS; i++) {
+    ASSERT_EQ(graph_vector[i]->get_graph(), graph_vector[0]->get_graph());
+  }
+
+  finish = true;
+  t.join();
+}
 
 int main(int argc, char ** argv)
 {

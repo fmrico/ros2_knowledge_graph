@@ -16,6 +16,7 @@
 #include "ros2_knowledge_graph_msgs/msg/graph.hpp"
 #include "ros2_knowledge_graph_msgs/msg/node.hpp"
 #include "ros2_knowledge_graph_msgs/msg/edge.hpp"
+#include "ros2_knowledge_graph_msgs/msg/graph_update.hpp"
 
 #include "ros2_knowledge_graph/GraphNode.hpp"
 
@@ -28,17 +29,27 @@ GraphNode::GraphNode(rclcpp::Node::SharedPtr provided_node)
 : node_(provided_node)
 {
   graph_ = std::make_unique<ros2_knowledge_graph_msgs::msg::Graph>();
-  graph_->seq = 0;
+  graph_id_ = node_->get_name() + std::to_string(node_->now().seconds());
 
-  graph_pub_ = node_->create_publisher<ros2_knowledge_graph_msgs::msg::Graph>(
-    "graph", rclcpp::QoS(100).transient_local().keep_last(100).reliable());
-  graph_sub_ = node_->create_subscription<ros2_knowledge_graph_msgs::msg::Graph>(
-    "graph", rclcpp::QoS(100).transient_local().keep_last(100).reliable(),
-    std::bind(&GraphNode::graph_callback, this,_1));
+  update_pub_ = node_->create_publisher<ros2_knowledge_graph_msgs::msg::GraphUpdate>(
+    "graph_update", rclcpp::QoS(1000).reliable());
+  update_sub_ = node_->create_subscription<ros2_knowledge_graph_msgs::msg::GraphUpdate>(
+    "graph_update", rclcpp::QoS(100).reliable(),
+    std::bind(&GraphNode::update_callback, this,_1));
+
+  last_ts_ = node_->now();
+
+  ros2_knowledge_graph_msgs::msg::GraphUpdate hello_msg;
+  hello_msg.stamp = node_->now();
+  hello_msg.node_id = graph_id_;
+  hello_msg.operation_type = ros2_knowledge_graph_msgs::msg::GraphUpdate::REQSYNC;
+  hello_msg.element_type = ros2_knowledge_graph_msgs::msg::GraphUpdate::GRAPH;
+  hello_msg.graph = *graph_;
+  update_pub_->publish(hello_msg);
 }
 
 bool
-GraphNode::remove_node(const std::string node)
+GraphNode::remove_node(const std::string node, bool sync)
 {
   bool removed = false;
   auto it = graph_->nodes.begin();
@@ -63,7 +74,17 @@ GraphNode::remove_node(const std::string node)
   }
 
   if (removed) {
-    publish_graph();
+    if (sync) {
+      ros2_knowledge_graph_msgs::msg::GraphUpdate update_msg;
+      update_msg.stamp = node_->now();
+      update_msg.node_id = graph_id_;
+      update_msg.operation_type = ros2_knowledge_graph_msgs::msg::GraphUpdate::REMOVE;
+      update_msg.element_type = ros2_knowledge_graph_msgs::msg::GraphUpdate::NODE;
+      update_msg.removed_node = node;
+      update_pub_->publish(update_msg);
+    }
+
+    last_ts_ = node_->now();
   }
 
   return removed;
@@ -101,7 +122,7 @@ GraphNode::get_node_names()
 }
 
 bool
-GraphNode::remove_edge(const ros2_knowledge_graph_msgs::msg::Edge & edge)
+GraphNode::remove_edge(const ros2_knowledge_graph_msgs::msg::Edge & edge, bool sync)
 {
   bool removed = false;
 
@@ -128,7 +149,17 @@ GraphNode::remove_edge(const ros2_knowledge_graph_msgs::msg::Edge & edge)
   }
 
   if (removed) {
-    publish_graph();
+    if (sync) {
+      ros2_knowledge_graph_msgs::msg::GraphUpdate update_msg;
+      update_msg.stamp = node_->now();
+      update_msg.node_id = graph_id_;
+      update_msg.operation_type = ros2_knowledge_graph_msgs::msg::GraphUpdate::REMOVE;
+      update_msg.element_type = ros2_knowledge_graph_msgs::msg::GraphUpdate::EDGE;
+      update_msg.edge = edge;
+      update_pub_->publish(update_msg);
+    }
+
+    last_ts_ = node_->now();
   }
 
   return removed;
@@ -164,7 +195,7 @@ GraphNode::get_num_nodes() const
 }
 
 void
-GraphNode::updateNode(const ros2_knowledge_graph_msgs::msg::Node & node)
+GraphNode::update_node(const ros2_knowledge_graph_msgs::msg::Node & node, bool sync)
 {
   bool found = false;
   auto it = graph_->nodes.begin();
@@ -179,12 +210,22 @@ GraphNode::updateNode(const ros2_knowledge_graph_msgs::msg::Node & node)
   if (!found) {
     graph_->nodes.push_back(node);
   }
+  
+  if (sync) {
+    ros2_knowledge_graph_msgs::msg::GraphUpdate update_msg;
+    update_msg.stamp = node_->now();
+    update_msg.node_id = graph_id_;
+    update_msg.operation_type = ros2_knowledge_graph_msgs::msg::GraphUpdate::UPDATE;
+    update_msg.element_type = ros2_knowledge_graph_msgs::msg::GraphUpdate::NODE;
+    update_msg.node = node;
+    update_pub_->publish(update_msg);
+  }
 
-  publish_graph();
+  last_ts_ = node_->now();
 }
 
 bool
-GraphNode::updateEdge(const ros2_knowledge_graph_msgs::msg::Edge & edge)
+GraphNode::update_edge(const ros2_knowledge_graph_msgs::msg::Edge & edge, bool sync)
 {
   if (!exist_node(edge.source_node_id)) {
     RCLCPP_ERROR_STREAM(
@@ -225,12 +266,32 @@ GraphNode::updateEdge(const ros2_knowledge_graph_msgs::msg::Edge & edge)
     }
     graph_->edges.push_back(mod_edge);
 
-    publish_graph();
+    if (sync) {
+      ros2_knowledge_graph_msgs::msg::GraphUpdate update_msg;
+      update_msg.stamp = node_->now();
+      update_msg.node_id = graph_id_;
+      update_msg.operation_type = ros2_knowledge_graph_msgs::msg::GraphUpdate::UPDATE;
+      update_msg.element_type = ros2_knowledge_graph_msgs::msg::GraphUpdate::EDGE;
+      update_msg.edge = mod_edge;
+      update_pub_->publish(update_msg);
+    }
+
+    last_ts_ = node_->now();
   } else {
     if (mod_edge.content.type != ros2_knowledge_graph_msgs::msg::Content::STATICTF && 
       mod_edge.content.type != ros2_knowledge_graph_msgs::msg::Content::TF)
     {
-      publish_graph();
+      if (sync) {
+        ros2_knowledge_graph_msgs::msg::GraphUpdate update_msg;
+        update_msg.stamp = node_->now();
+        update_msg.node_id = graph_id_;
+        update_msg.operation_type = ros2_knowledge_graph_msgs::msg::GraphUpdate::UPDATE;
+        update_msg.element_type = ros2_knowledge_graph_msgs::msg::GraphUpdate::EDGE;
+        update_msg.edge = mod_edge;
+        update_pub_->publish(update_msg);
+      }
+
+      last_ts_ = node_->now();
     } else {
       mod_edge.content.tf_value.header.frame_id = edge.source_node_id;
       mod_edge.content.tf_value.child_frame_id = edge.target_node_id;
@@ -242,17 +303,95 @@ GraphNode::updateEdge(const ros2_knowledge_graph_msgs::msg::Edge & edge)
 }
 
 void
-GraphNode::publish_graph()
+GraphNode::update_callback(ros2_knowledge_graph_msgs::msg::GraphUpdate::UniquePtr msg)
 {
-  graph_->seq++;
-  graph_pub_->publish(*graph_);
-}
+  const auto & author_id = msg->node_id;
+  const auto & element = msg->element_type;
+  const auto & operation = msg->operation_type;
+  const auto & ts = msg->stamp;
 
-void
-GraphNode::graph_callback(ros2_knowledge_graph_msgs::msg::Graph::UniquePtr msg)
-{
-  if (msg->seq > graph_->seq) {
-    graph_ = std::move(msg);
+  if (author_id == graph_id_) {
+    return;
+  }
+
+  if (rclcpp::Time(ts) < last_ts_ &&
+    operation != ros2_knowledge_graph_msgs::msg::GraphUpdate::REQSYNC &&
+    operation != ros2_knowledge_graph_msgs::msg::GraphUpdate::SYNC)
+  {
+    RCLCPP_ERROR(
+      node_->get_logger(), "UNORDERER UPDATE [%zd] %lf > %lf",
+      operation,
+      last_ts_.seconds(), rclcpp::Time(ts).seconds());
+  }
+
+  switch (element) {
+    case ros2_knowledge_graph_msgs::msg::GraphUpdate::NODE:
+      {
+        if (author_id == graph_id_) {
+          return;
+        }
+
+        switch (operation) {
+          case ros2_knowledge_graph_msgs::msg::GraphUpdate::UPDATE:
+            {
+              update_node(msg->node, false);
+              break;
+            }
+
+          case ros2_knowledge_graph_msgs::msg::GraphUpdate::REMOVE:
+            {
+              remove_node(msg->removed_node, false);
+              break;
+            }
+        }
+      }
+      break;
+
+    case ros2_knowledge_graph_msgs::msg::GraphUpdate::EDGE:
+      {
+        if (author_id == graph_id_) {
+          return;
+        }
+
+        switch (operation) {
+          case ros2_knowledge_graph_msgs::msg::GraphUpdate::UPDATE:
+            update_edge(msg->edge, false);
+            break;
+
+          case ros2_knowledge_graph_msgs::msg::GraphUpdate::REMOVE:
+            remove_edge(msg->edge, false);
+            break;
+        }
+      }
+      break;
+
+    case ros2_knowledge_graph_msgs::msg::GraphUpdate::GRAPH:
+      {
+        switch (operation) {
+          case ros2_knowledge_graph_msgs::msg::GraphUpdate::SYNC:
+
+            if (msg->target_node == graph_id_) {
+              *graph_ = msg->graph;
+              last_ts_ = ts;
+            }
+            break;
+
+          case ros2_knowledge_graph_msgs::msg::GraphUpdate::REQSYNC:
+
+            if (msg->node_id != node_->get_name()) {
+              ros2_knowledge_graph_msgs::msg::GraphUpdate out_msg;
+              out_msg.stamp = node_->now();
+              out_msg.node_id = graph_id_;
+              out_msg.target_node = msg->node_id;
+              out_msg.operation_type = ros2_knowledge_graph_msgs::msg::GraphUpdate::SYNC;
+              out_msg.element_type = ros2_knowledge_graph_msgs::msg::GraphUpdate::GRAPH;
+              out_msg.graph = *graph_;
+              update_pub_->publish(out_msg);
+            }
+            break;
+        }
+      }
+      break;
   }
 }
 
