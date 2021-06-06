@@ -14,6 +14,7 @@ uint8 STATICTF=12
 uint8 VPOSE=13
 uint8 VTF=14
 uint8 ERROR=15
+uint8 NUM_TYPES=16
 
 uint8 type
 

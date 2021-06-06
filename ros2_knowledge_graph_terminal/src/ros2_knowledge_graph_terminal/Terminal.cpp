@@ -27,7 +27,12 @@
 
 #include "rclcpp/rclcpp.hpp"
 
-#include "ros2_knowledge_graph/Graph.hpp"
+#include "ros2_knowledge_graph_msgs/msg/graph.hpp"
+#include "ros2_knowledge_graph_msgs/msg/graph_update.hpp"
+#include "ros2_knowledge_graph_msgs/msg/node.hpp"
+#include "ros2_knowledge_graph_msgs/msg/edge.hpp"
+
+#include "ros2_knowledge_graph/graph_utils.hpp"
 
 #include "ros2_knowledge_graph_terminal/Terminal.hpp"
 
@@ -35,7 +40,7 @@
 namespace ros2_knowledge_graph_terminal
 {
 
-std::vector<std::string> tokenize(const std::string & text)
+std::vector<std::string> tokenize(const std::string & text, const std::string delim)
 {
   if (text.empty()) {
     return {};
@@ -45,7 +50,7 @@ std::vector<std::string> tokenize(const std::string & text)
   size_t start = 0, end = 0;
 
   while (end != std::string::npos) {
-    end = text.find(" ", start);
+    end = text.find(delim, start);
     ret.push_back(text.substr(start, (end == std::string::npos) ? std::string::npos : end - start));
     start = ((end > (std::string::npos - 1)) ? std::string::npos : end + 1);
   }
@@ -136,15 +141,14 @@ char ** completer(const char * text, int start, int end)
 Terminal::Terminal()
 : rclcpp::Node(
     "graph_terminal_" +
-    std::to_string(static_cast<int>(rclcpp::Clock().now().seconds()))),
-  graph_(get_name())
+    std::to_string(static_cast<int>(rclcpp::Clock().now().seconds())))
 {
-  graph_.start();
 }
 
 void
 Terminal::run_console()
 {
+  graph_ = std::make_shared<ros2_knowledge_graph::GraphNode>(shared_from_this());
   std::string line;
   bool success = true;
 
@@ -251,13 +255,62 @@ void
 Terminal::process_add_node(std::vector<std::string> & command, std::ostringstream & os)
 {
   if (command.size() == 2) {
-    if (!graph_.add_node({command[0], command[1]})) {
-      os << "Could not add the node [" << command[0] << "]" << std::endl;
-    }
+    auto node = ros2_knowledge_graph::new_node(command[0], command[1]);
+    graph_->update_node(node);
   } else {
     os << "\tUsage: \n\t\tadd node [name] [type]" <<
       std::endl;
   }
+}
+
+std::optional<ros2_knowledge_graph_msgs::msg::Edge>
+Terminal::get_edge(
+  const std::string & source, const std::string & target,
+  const std::string & type, const std::string & content)
+{
+  ros2_knowledge_graph_msgs::msg::Edge ret;
+  if (type == "bool") {
+    ret = ros2_knowledge_graph::new_edge<bool>(source, target, content == "true");
+  } else if (type == "int") {
+    auto edge = ros2_knowledge_graph::new_edge<int>(source, target, atoi(content.c_str()));
+    graph_->update_edge(edge);
+  } else if (type == "float") {
+    ret = ros2_knowledge_graph::new_edge<float>(source, target, atof(content.c_str()));
+  } else if (type == "double") {
+    ret = ros2_knowledge_graph::new_edge<double>(source, target, atof(content.c_str()));
+  } else if (type == "string") {
+    ret = ros2_knowledge_graph::new_edge<std::string>(source, target, content);
+  } else if (type == "tf" || type == "tf_static") {
+    auto vals = tokenize(content, ":");
+    geometry_msgs::msg::TransformStamped tf1;
+    if (vals.size() == 6) {
+      tf1.header.frame_id = source;
+      tf1.child_frame_id = target;
+      tf1.header.stamp = now();
+      tf1.transform.translation.x = atof(vals[0].c_str());
+      tf1.transform.translation.y = atof(vals[1].c_str());
+      tf1.transform.translation.z = atof(vals[2].c_str());
+
+      tf2::Quaternion q;
+      q.setRPY(atof(vals[3].c_str()), atof(vals[4].c_str()), atof(vals[5].c_str()));
+
+      tf1.transform.rotation.x = q.x();
+      tf1.transform.rotation.y = q.y();
+      tf1.transform.rotation.z = q.z();
+      tf1.transform.rotation.w = q.w();
+
+      ret = ros2_knowledge_graph::new_edge<geometry_msgs::msg::TransformStamped>(
+        source, target, tf1, type == "tf_static");
+    } else {
+      std::cerr << "Usage: x:y:z:r:p:y" << std::endl;
+      return {};
+    }
+  } else {
+    std::cerr << "ToDo: implement more types [" << type << "]" << std::endl;
+    return {};
+  }
+
+  return ret;
 }
 
 void
@@ -270,7 +323,15 @@ Terminal::process_add_edge(std::vector<std::string> & command, std::ostringstrea
       command.pop_back();
     }
 
-    if (!graph_.add_edge({command[3], command[2],  command[0],  command[1]})) {
+    const std::string & source = command[0];
+    const std::string & target = command[1];
+    const std::string & type = command[2];
+    const std::string & data = command[3];
+
+    auto edge = get_edge(source, target, type, data);
+    if (edge.has_value()) {
+      graph_->update_edge(edge.value());
+    } else {
       os << "Could not add the edge [" << command[2] << "] " << command[0] << " -> " << command[1] << std::endl;
     }
   } else {
@@ -303,7 +364,7 @@ void
 Terminal::process_remove_node(std::vector<std::string> & command, std::ostringstream & os)
 {
   if (command.size() == 1) {
-    if (!graph_.remove_node(command[0])) {
+    if (!graph_->remove_node(command[0])) {
       os << "Could not remove the node [" << command[0] << "]" << std::endl;
     }
   } else {
@@ -322,7 +383,15 @@ Terminal::process_remove_edge(std::vector<std::string> & command, std::ostringst
       command.pop_back();
     }
 
-    if (!graph_.remove_edge({command[3], command[2],  command[0],  command[1]})) {
+    const std::string & source = command[0];
+    const std::string & target = command[1];
+    const std::string & type = command[2];
+    const std::string & data = command[3];
+
+    auto edge = get_edge(source, target, type, data);
+    if (edge.has_value()) {
+      graph_->remove_edge(edge.value());
+    } else {
       os << "Could not remove the edge [" << command[2] << "] " << command[0] << " -> " << command[1] << std::endl;
     }
   } else {
@@ -361,10 +430,10 @@ void
 Terminal::process_get_node(std::vector<std::string> & command, std::ostringstream & os)
 {
   if (command.size() == 1) {
-    const auto & node = graph_.get_node(command[0]);
+    const auto & node = graph_->get_node(command[0]);
 
-    if (node) {
-      os << node.value().to_string() << std::endl;
+    if (node.has_value()) {
+      os << ros2_knowledge_graph::to_string(node.value()) << std::endl;
     } else {
       os << "node [" << command[0] << "] not found" << std::endl;
     }
@@ -378,13 +447,11 @@ void
 Terminal::process_get_edge(std::vector<std::string> & command, std::ostringstream & os)
 {
   if (command.size() == 3) {
-    std::vector<ros2_knowledge_graph::Edge> edges;
-    
-    graph_.get_edges(command[0], command[1], command[2], edges);
+    auto edges = graph_->get_edges(command[0], command[1], ros2_knowledge_graph::type_from_string(command[2]));
 
     os << "Edges: " << edges.size() << std::endl;
     for (const auto & edge : edges) {
-      os << edge.to_string() << std::endl;
+      os << ros2_knowledge_graph::to_string(edge) << std::endl;
     }
   } else {
     os << "\tUsage: \n\t\tget edge [source] [target] [type]" <<
@@ -396,11 +463,11 @@ void
 Terminal::process_get_nodes(std::vector<std::string> & command, std::ostringstream & os)
 {
   if (command.size() == 0) {
-    const auto & nodes = graph_.get_nodes();
+    const auto & nodes = graph_->get_nodes();
 
     os << "Nodes: " << nodes.size() << std::endl;
     for (const auto & node : nodes) {
-      os << node.second.to_string() << std::endl;
+      os << ros2_knowledge_graph::to_string(node) << std::endl;
     }
   } else {
     os << "\tUsage: \n\t\tget nodes" <<
@@ -412,14 +479,11 @@ void
 Terminal::process_get_edges(std::vector<std::string> & command, std::ostringstream & os)
 {
   if (command.size() == 0) {
-    const auto & edges = graph_.get_edges();
+    const auto & edges = graph_->get_edges();
 
     os << "Connections: " << edges.size() << std::endl;
     for (const auto & edge : edges) {
-      os << "Edges: " << edge.second.size() << std::endl;
-      for (const auto & edge_type : edge.second) {
-        os << edge_type.to_string() << std::endl;
-      }
+      os << ros2_knowledge_graph::to_string(edge) << std::endl;
     }
   } else {
     os << "\tUsage: \n\t\tget edges" <<
@@ -429,623 +493,22 @@ Terminal::process_get_edges(std::vector<std::string> & command, std::ostringstre
 
 void
 Terminal::process_print(std::vector<std::string> & command, std::ostringstream & os)
-{
-  os << graph_.to_string() << std::endl;
-}
+{    
+  const auto & nodes = graph_->get_nodes();
 
-/*void
-Terminal::process_get(std::vector<std::string> & command, std::ostringstream & os)
-{
-  if (command.size() > 0) {
-    if (command[0] == "model") {
-      pop_front(command);
-      process_get_model(command, os);
-    } else if (command[0] == "problem") {
-      pop_front(command);
-      process_get_problem(command, os);
-    } else if (command[0] == "domain") {
-      os << "domain: \n" << domain_client_->getDomain() << std::endl;
-    } else if (command[0] == "plan") {
-      auto plan = planner_client_->getPlan(
-        domain_client_->getDomain(),
-        problem_client_->getProblem());
+  os << "Nodes: " << nodes.size() << std::endl;
+  for (const auto & node : nodes) {
+    os << "\t" << ros2_knowledge_graph::to_string(node) << std::endl;
+  }
 
-      if (plan) {
-        os << "plan: " << std::endl;
-        for (const auto & action : plan.value()) {
-          os << action.time << "\t" << action.action << "\t" <<
-            action.duration << std::endl;
-        }
-      } else {
-        os << "No se ha encontrado plan" << std::endl;
-      }
-    } else {
-      os << " get ---> " << command[0] << std::endl;
-      os << "\tUsage: \n\t\tget [model|problem|domain|plan]..." <<
-        std::endl;
-    }
-  } else {
-    os << "\tUsage: \n\t\tget [model|problem|domain|plan]..." <<
-      std::endl;
+  const auto & edges = graph_->get_edges();
+
+  os << "Connections: " << edges.size() << std::endl;
+  for (const auto & edge : edges) {
+    os << "\t" << ros2_knowledge_graph::to_string(edge) << std::endl;
   }
 }
 
-
-void
-Terminal::process_get_model_predicate(std::vector<std::string> & command, std::ostringstream & os)
-{
-  if (command.size() == 1) {
-    auto predicates = domain_client_->getPredicate(command[0]);
-    if (predicates) {
-      os << "Parameters: " << predicates.value().parameters.size() << std::endl;
-      for (size_t i = 0; i < predicates.value().parameters.size(); i++) {
-        os << "\t" << predicates.value().parameters[i].type << " - " <<
-          predicates.value().parameters[i].name << std::endl;
-      }
-    } else {
-      os << "Error when looking for params of " << command[0] << std::endl;
-    }
-  } else {
-    os << "\tUsage: \n\t\tget model predicate [predicate_name]" << std::endl;
-  }
-}
-
-void
-Terminal::process_get_model_function(std::vector<std::string> & command, std::ostringstream & os)
-{
-  if (command.size() == 1) {
-    auto functions = domain_client_->getFunction(command[0]);
-    if (functions) {
-      os << "Parameters: " << functions.value().parameters.size() << std::endl;
-      for (size_t i = 0; i < functions.value().parameters.size(); i++) {
-        os << "\t" << functions.value().parameters[i].type << " - " <<
-          functions.value().parameters[i].name << std::endl;
-      }
-    } else {
-      os << "Error when looking for params of " << command[0] << std::endl;
-    }
-  } else {
-    os << "\tUsage: \n\t\tget model function [function_name]" << std::endl;
-  }
-}
-
-void
-Terminal::process_get_model_action(std::vector<std::string> & command, std::ostringstream & os)
-{
-  if (command.size() == 1) {
-    auto action = domain_client_->getAction(command[0]);
-    auto durative_action = domain_client_->getDurativeAction(command[0]);
-    if (action) {
-      os << "Type: action" << std::endl;
-      os << "Parameters: " << action.value().parameters.size() << std::endl;
-      for (size_t i = 0; i < action.value().parameters.size(); i++) {
-        os << "\t" << action.value().parameters[i].type << " - " <<
-          action.value().parameters[i].name << std::endl;
-      }
-      os << "Preconditions: " << action.value().preconditions.toString() << std::endl;
-      os << "Effects: " << action.value().effects.toString() << std::endl;
-    } else if (durative_action) {
-      os << "Type: durative-action" << std::endl;
-      os << "Parameters: " << durative_action.value().parameters.size() << std::endl;
-      for (size_t i = 0; i < durative_action.value().parameters.size(); i++) {
-        os << "\t" << durative_action.value().parameters[i].name << " - " <<
-          durative_action.value().parameters[i].type << std::endl;
-      }
-      os << "AtStart requirements: " <<
-        durative_action.value().at_start_requirements.toString() << std::endl;
-      os << "OverAll requirements: " <<
-        durative_action.value().over_all_requirements.toString() << std::endl;
-      os << "AtEnd requirements: " <<
-        durative_action.value().at_end_requirements.toString() << std::endl;
-      os << "AtStart effect: " <<
-        durative_action.value().at_start_effects.toString() << std::endl;
-      os << "AtEnd effect: " <<
-        durative_action.value().at_end_effects.toString() << std::endl;
-    } else {
-      os << "Error when looking for params of " << command[0] << std::endl;
-    }
-  } else {
-    os << "\tUsage: \n\t\tget model action [action_name]" << std::endl;
-  }
-}
-
-void
-Terminal::process_get_model(std::vector<std::string> & command, std::ostringstream & os)
-{
-  if (command.size() > 0) {
-    if (command[0] == "types") {
-      auto types = domain_client_->getTypes();
-
-      os << "Types: " << types.size() << std::endl;
-      for (const auto & type : types) {
-        os << "\t" << type << std::endl;
-      }
-    } else if (command[0] == "predicates") {
-      auto predicates = domain_client_->getPredicates();
-
-      os << "Predicates: " << predicates.size() << std::endl;
-      for (const auto & predicate : predicates) {
-        os << "\t" << predicate << std::endl;
-      }
-    } else if (command[0] == "functions") {
-      auto functions = domain_client_->getFunctions();
-
-      os << "Functions: " << functions.size() << std::endl;
-      for (const auto & function : functions) {
-        os << "\t" << function << std::endl;
-      }
-    } else if (command[0] == "actions") {
-      auto actions = domain_client_->getActions();
-      auto durative_actions = domain_client_->getDurativeActions();
-
-      os << "Actions: " << actions.size() << std::endl;
-      for (const auto & action : actions) {
-        os << "\t" << action << " (action)" << std::endl;
-      }
-      for (const auto & durative_action : durative_actions) {
-        os << "\t" << durative_action << " (durative action)" << std::endl;
-      }
-    } else if (command[0] == "predicate") {
-      pop_front(command);
-      process_get_model_predicate(command, os);
-    } else if (command[0] == "function") {
-      pop_front(command);
-      process_get_model_function(command, os);
-    } else if (command[0] == "action") {
-      pop_front(command);
-      process_get_model_action(command, os);
-    } else {
-      os <<
-        "\tUsage: \n\t\tget model [types|predicates|functions|actions|predicate|function|action]..."
-         <<
-        std::endl;
-    }
-  } else {
-    os <<
-      "\tUsage: \n\t\tget model [types|predicates|functions|actions|predicate|function|action]..."
-       <<
-      std::endl;
-  }
-}
-
-void
-Terminal::process_get_problem(std::vector<std::string> & command, std::ostringstream & os)
-{
-  if (command.size() > 0) {
-    if (command[0] == "instances") {
-      auto instances = problem_client_->getInstances();
-
-      os << "Instances: " << instances.size() << std::endl;
-      for (const auto & instance : instances) {
-        os << "\t" << instance.name << "\t" << instance.type << std::endl;
-      }
-    } else if (command[0] == "predicates") {
-      auto predicates = problem_client_->getPredicates();
-
-      os << "Predicates: " << predicates.size() << std::endl;
-      for (const auto & predicate : predicates) {
-        os << predicate.toString() << std::endl;
-      }
-    } else if (command[0] == "functions") {
-      auto functions = problem_client_->getFunctions();
-
-      os << "Functions: " << functions.size() << std::endl;
-      for (const auto & function : functions) {
-        os << function.toString() << std::endl;
-      }
-    } else if (command[0] == "goal") {
-      auto goal = problem_client_->getGoal();
-      os << "Goal: " << goal.toString() << std::endl;
-    }
-  } else {
-    os << "\tUsage: \n\t\tget problem [instances|predicates|functions|goal]..." <<
-      std::endl;
-  }
-}
-
-void
-Terminal::process_get(std::vector<std::string> & command, std::ostringstream & os)
-{
-  if (command.size() > 0) {
-    if (command[0] == "model") {
-      pop_front(command);
-      process_get_model(command, os);
-    } else if (command[0] == "problem") {
-      pop_front(command);
-      process_get_problem(command, os);
-    } else if (command[0] == "domain") {
-      os << "domain: \n" << domain_client_->getDomain() << std::endl;
-    } else if (command[0] == "plan") {
-      auto plan = planner_client_->getPlan(
-        domain_client_->getDomain(),
-        problem_client_->getProblem());
-
-      if (plan) {
-        os << "plan: " << std::endl;
-        for (const auto & action : plan.value()) {
-          os << action.time << "\t" << action.action << "\t" <<
-            action.duration << std::endl;
-        }
-      } else {
-        os << "No se ha encontrado plan" << std::endl;
-      }
-    } else {
-      os << " get ---> " << command[0] << std::endl;
-      os << "\tUsage: \n\t\tget [model|problem|domain|plan]..." <<
-        std::endl;
-    }
-  } else {
-    os << "\tUsage: \n\t\tget [model|problem|domain|plan]..." <<
-      std::endl;
-  }
-}
-
-void
-Terminal::process_set_instance(std::vector<std::string> & command, std::ostringstream & os)
-{
-  if (command.size() == 2) {
-    if (!problem_client_->addInstance(parser::pddl::tree::Instance{command[0], command[1]})) {
-      os << "Could not add the instance [" << command[0] << "]" << std::endl;
-    }
-  } else {
-    os << "\tUsage: \n\t\tset instance [name] [type]" <<
-      std::endl;
-  }
-}
-
-void
-Terminal::process_set_predicate(std::vector<std::string> & command, std::ostringstream & os)
-{
-  if (command.size() > 0) {
-    parser::pddl::tree::Predicate predicate;
-    predicate.name = command[0];
-
-    if (predicate.name.front() != '(') {
-      os << "\tUsage: \n\t\tset predicate (predicate)" <<
-        std::endl;
-      return;
-    }
-
-    predicate.name.erase(0, 1);  // Remove first )
-
-    pop_front(command);
-    while (!command.empty()) {
-      parser::pddl::tree::Param param {command[0], ""};
-      predicate.parameters.push_back(param);
-      pop_front(command);
-    }
-
-    if (predicate.parameters.back().name.back() != ')') {
-      os << "\tUsage: \n\t\tset predicate (predicate)" <<
-        std::endl;
-      return;
-    }
-
-    predicate.parameters.back().name.pop_back();  // Remove last (
-
-    if (!problem_client_->addPredicate(predicate)) {
-      os << "Could not add the predicate [" << predicate.toString() << "]" << std::endl;
-    }
-  } else {
-    os << "\tUsage: \n\t\tset predicate [predicate]" <<
-      std::endl;
-  }
-}
-
-void
-Terminal::process_set_function(std::vector<std::string> & command, std::ostringstream & os)
-{
-  if (command.size() > 0) {
-    parser::pddl::tree::Function function;
-
-    std::string total_expr;
-    for (const auto & token : command) {
-      total_expr += " " + token;
-    }
-
-    function.fromString(total_expr);
-
-    if (!problem_client_->addFunction(function)) {
-      os <<
-        "Could not add the function [" <<
-        function.toString() << "]" << std::endl;
-    } else {
-      os << "done" << std::endl;
-    }
-  } else {
-    os << "\tUsage: \n\t\tset function [function]" <<
-      std::endl;
-  }
-}
-
-void
-Terminal::process_set_goal(std::vector<std::string> & command, std::ostringstream & os)
-{
-  if (command.size() > 0) {
-    std::string total_expr;
-    for (const auto & token : command) {
-      total_expr += " " + token;
-    }
-
-    parser::pddl::tree::Goal goal(total_expr);
-
-    if (goal.root_ != nullptr) {
-      if (!problem_client_->setGoal(goal)) {
-        os << "Could not set the goal [" << goal.toString() << "]" << std::endl;
-      }
-    } else {
-      os << "\tUsage: \n\t\tset goal [goal]" <<
-        std::endl;
-    }
-  } else {
-    os << "Not valid goal" << std::endl;
-  }
-}
-
-void
-Terminal::process_set(std::vector<std::string> & command, std::ostringstream & os)
-{
-  if (command.size() > 0) {
-    if (command[0] == "instance") {
-      pop_front(command);
-      process_set_instance(command, os);
-    } else if (command[0] == "predicate") {
-      pop_front(command);
-      process_set_predicate(command, os);
-    } else if (command[0] == "function") {
-      pop_front(command);
-      process_set_function(command, os);
-    } else if (command[0] == "goal") {
-      pop_front(command);
-      process_set_goal(command, os);
-    } else {
-      os << "\tUsage: \n\t\tset [instance|predicate|function|goal]..." <<
-        std::endl;
-    }
-  } else {
-    os << "\tUsage: \n\t\tset [instance|predicate|function|goal]..." <<
-      std::endl;
-  }
-}
-
-void
-Terminal::process_remove_instance(std::vector<std::string> & command, std::ostringstream & os)
-{
-  if (command.size() == 1) {
-    if (!problem_client_->removeInstance(command[0])) {
-      os << "Could not remove the instance [" << command[0] << "]" << std::endl;
-    }
-  } else {
-    os << "\tUsage: \n\t\tremove instance [name]" <<
-      std::endl;
-  }
-}
-
-void
-Terminal::process_remove_predicate(std::vector<std::string> & command, std::ostringstream & os)
-{
-  if (command.size() > 0) {
-    parser::pddl::tree::Predicate predicate;
-    predicate.name = command[0];
-
-    if (predicate.name.front() != '(') {
-      os << "\tUsage: \n\t\tremove predicate (predicate)" <<
-        std::endl;
-    }
-
-    predicate.name.erase(0, 1);  // Remove first )
-
-    pop_front(command);
-    while (!command.empty()) {
-      parser::pddl::tree::Param param {command[0], ""};
-      predicate.parameters.push_back(param);
-      pop_front(command);
-    }
-
-    if (predicate.parameters.back().name.back() != ')') {
-      os << "\tUsage: \n\t\tremove predicate (predicate)" <<
-        std::endl;
-      return;
-    }
-
-    predicate.parameters.back().name.pop_back();  // Remove last (
-
-    if (!problem_client_->removePredicate(predicate)) {
-      os << "Could not remove the predicate [" << predicate.toString() << "]" << std::endl;
-    }
-  } else {
-    os << "\tUsage: \n\t\remove predicate [name] [instance1] [instance2] ...[instaceN]" <<
-      std::endl;
-  }
-}
-
-void
-Terminal::process_remove_function(std::vector<std::string> & command, std::ostringstream & os)
-{
-  if (command.size() > 0) {
-    parser::pddl::tree::Function function;
-
-    std::regex name_regexp("[a-zA-Z][a-zA-Z0-9_\\-]*");
-
-    std::smatch match;
-    std::string temp;
-
-    for (const auto & token : command) {
-      temp += token + " ";
-    }
-
-    if (std::regex_search(temp, match, name_regexp)) {
-      function.name = match.str(0);
-      temp = match.suffix().str();
-    }
-
-    while (std::regex_search(temp, match, name_regexp)) {
-      function.parameters.push_back(parser::pddl::tree::Param{match.str(0), ""});
-      temp = match.suffix().str();
-    }
-
-    if (!problem_client_->removeFunction(function)) {
-      os << "Could not remove the function [" << function.toString() << "]" << std::endl;
-    }
-  } else {
-    os << "\tUsage: \n\t\remove function [name] [instance1] [instance2] ...[instaceN]" <<
-      std::endl;
-  }
-}
-
-void
-Terminal::process_remove(std::vector<std::string> & command, std::ostringstream & os)
-{
-  if (command.size() > 0) {
-    if (command[0] == "instance") {
-      pop_front(command);
-      process_remove_instance(command, os);
-    } else if (command[0] == "predicate") {
-      pop_front(command);
-      process_remove_predicate(command, os);
-    } else if (command[0] == "function") {
-      pop_front(command);
-      process_remove_function(command, os);
-    } else if (command[0] == "goal", os) {
-      problem_client_->clearGoal();
-    } else {
-      os << "\tUsage: \n\t\tremove [instance|predicate|function|goal]..." <<
-        std::endl;
-    }
-  } else {
-    os << "\tUsage: \n\t\tremove [instance|predicate|function|goal]..." <<
-      std::endl;
-  }
-}
-
-void
-Terminal::execute_plan()
-{
-  rclcpp::Rate loop_rate(5);
-
-  if (!executor_client_->start_plan_execution()) {
-    std::cout << "Execution could not start " << std::endl;
-    return;
-  }
-
-  while (rclcpp::ok() && executor_client_->execute_and_check_plan()) {
-    auto feedback = executor_client_->getFeedBack();
-
-    std::cout << "\r\e[K" << std::flush;
-    for (const auto & action_status : feedback.action_execution_status) {
-      if (action_status.status == plansys2_msgs::msg::ActionExecutionInfo::NOT_EXECUTED ||
-        action_status.status == plansys2_msgs::msg::ActionExecutionInfo::SUCCEEDED)
-      {
-        continue;
-      }
-      std::cout << "[(" << action_status.action;
-
-      for (const auto & param : action_status.arguments) {
-        std::cout << " " << param;
-      }
-      std::cout << ") ";
-
-      switch (action_status.status) {
-        case plansys2_msgs::msg::ActionExecutionInfo::NOT_EXECUTED:
-          std::cout << "waiting]";
-          break;
-        case plansys2_msgs::msg::ActionExecutionInfo::EXECUTING:
-          std::cout << action_status.completion * 100.0 << "%]";
-          break;
-        case plansys2_msgs::msg::ActionExecutionInfo::FAILED:
-          std::cout << "FAILED]";
-          break;
-        case plansys2_msgs::msg::ActionExecutionInfo::SUCCEEDED:
-          std::cout << "succeeded]";
-          break;
-      }
-    }
-
-    std::cout << std::flush;
-
-    rclcpp::spin_some(this->get_node_base_interface());
-    loop_rate.sleep();
-  }
-
-  std::cout << std::endl;
-
-  if (executor_client_->getResult().value().success) {
-    std::cout << "Successful finished " << std::endl;
-  } else {
-    std::cout << "Finished with error: " << std::endl;
-  }
-}
-
-
-void
-Terminal::process_run(std::vector<std::string> & command, std::ostringstream & os)
-{
-  if (command.size() == 0) {
-    execute_plan();
-  }
-
-  // ToDo(fmrico): We should be able to run directly an action, for example:
-  // run (move leia entrance dinning)
-}
-
-void
-Terminal::process_check_actors(std::vector<std::string> & command, std::ostringstream & os)
-{
-  std::map<std::string, plansys2_msgs::msg::ActionPerformerStatus> actors;
-
-  auto status_callback =
-    [this, &actors](const plansys2_msgs::msg::ActionPerformerStatus::SharedPtr msg) {
-      actors[msg->node_name] = *msg;
-    };
-
-  auto status_sub = create_subscription<plansys2_msgs::msg::ActionPerformerStatus>(
-    "/performers_status", rclcpp::QoS(100).reliable(), status_callback);
-
-  auto start = now();
-  while (rclcpp::ok() && (now() - start).seconds() < 2.0) {
-    rclcpp::spin_some(shared_from_this());
-  }
-
-  std::list<std::string> keys;
-  for (const auto & actor : actors) {
-    keys.push_back(actor.first);
-  }
-  keys.sort();
-
-  for (const auto & key : keys) {
-    os << "\t[" << key << "] " << actors[key].action;
-
-    switch (actors[key].state) {
-      case plansys2_msgs::msg::ActionPerformerStatus::NOT_READY:
-        os << "\tNOT READY" << std::endl;
-        break;
-      case plansys2_msgs::msg::ActionPerformerStatus::READY:
-        os << "\tREADY" << std::endl;
-        break;
-      case plansys2_msgs::msg::ActionPerformerStatus::RUNNING:
-        os << "\tRUNNING" << std::endl;
-        break;
-      case plansys2_msgs::msg::ActionPerformerStatus::FAILURE:
-        os << "\tFAILURE" << std::endl;
-        break;
-    }
-  }
-}
-
-void
-Terminal::process_check(std::vector<std::string> & command, std::ostringstream & os)
-{
-  if (command.empty()) {
-    return;
-  }
-
-  if (command[0] == "actors") {
-    process_check_actors(command, os);
-  }
-
-  // ToDo(fmrico): We should be able to run directly an action, for example:
-  // run (move leia entrance dinning)
-}*/
 
 
 }  // namespace ros2_knowledge_graph_terminal

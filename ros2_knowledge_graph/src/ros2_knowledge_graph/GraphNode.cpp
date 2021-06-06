@@ -259,8 +259,10 @@ GraphNode::update_edge(const ros2_knowledge_graph_msgs::msg::Edge & edge, bool s
   while (!found && it != graph_->edges.end()) {
     if (it->source_node_id == edge.source_node_id &&
       it->target_node_id == edge.target_node_id &&
-      it->content.type == edge.content.type &&
-      it->content.type != ros2_knowledge_graph_msgs::msg::Content::STRING)
+      it->content.type == edge.content.type && (
+      it->content.type != ros2_knowledge_graph_msgs::msg::Content::STRING ||
+      (it->content.type == ros2_knowledge_graph_msgs::msg::Content::STRING &&
+      it->content.string_value == edge.content.string_value)))
     {
       *it = edge;
       found = true;
@@ -436,8 +438,11 @@ GraphNode::update_tf_edges()
 void
 GraphNode::update_tf_edge(ros2_knowledge_graph_msgs::msg::Edge & edge)
 {
-  edge.content.tf_value = buffer_.lookupTransform(
-    edge.source_node_id, edge.target_node_id, tf2::TimePointZero);
+  try {
+    edge.content.tf_value = buffer_.lookupTransform(
+      edge.source_node_id, edge.target_node_id, tf2::TimePointZero);
+  } catch (tf2::LookupException e) {
+  }
 }
 
 }  // namespace ros2_knowledge_graph

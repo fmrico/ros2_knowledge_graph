@@ -22,12 +22,18 @@
 
 #include "rclcpp/rclcpp.hpp"
 
+#include "ros2_knowledge_graph_msgs/msg/graph.hpp"
+#include "ros2_knowledge_graph_msgs/msg/graph_update.hpp"
+#include "ros2_knowledge_graph_msgs/msg/node.hpp"
+#include "ros2_knowledge_graph_msgs/msg/edge.hpp"
+
+#include "ros2_knowledge_graph/graph_utils.hpp"
 #include "ros2_knowledge_graph/GraphNode.hpp"
 
 namespace ros2_knowledge_graph_terminal
 {
 
-std::vector<std::string> tokenize(const std::string & text);
+std::vector<std::string> tokenize(const std::string & text, const std::string delim = " ");
 void pop_front(std::vector<std::string> & tokens);
 char * completion_generator(const char * text, int state);
 char ** completer(const char * text, int start, int end);
@@ -57,10 +63,14 @@ protected:
   virtual void process_get_nodes(std::vector<std::string> & command, std::ostringstream & os);
   virtual void process_get_edges(std::vector<std::string> & command, std::ostringstream & os);
 
+  std::optional<ros2_knowledge_graph_msgs::msg::Edge> get_edge(
+    const std::string & source, const std::string & target,
+    const std::string & type, const std::string & content);
+
   void process_print(std::vector<std::string> & command, std::ostringstream & os);
 
 private:
-  ros2_knowledge_graph::GraphNode graph_;
+  std::shared_ptr<ros2_knowledge_graph::GraphNode> graph_;
 };
 
 }  // namespace ros2_knowledge_graph_terminal

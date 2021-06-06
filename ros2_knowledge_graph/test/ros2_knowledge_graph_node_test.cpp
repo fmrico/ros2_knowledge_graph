@@ -292,6 +292,22 @@ TEST(ros2_knowledge_graphnode, graph_comms)
   ASSERT_EQ(graph_1.get_graph(), graph_3.get_graph());
   ASSERT_EQ(graph_1.get_graph(), graph_4.get_graph());
 
+  auto edge_to_remove = ros2_knowledge_graph::new_edge<std::string>("r2d2", "paco", "sees");
+  ASSERT_TRUE(graph_1.remove_edge(edge_to_remove));
+
+  {
+    auto start = node1->now();
+    while ((node1->now() - start).seconds() < 0.1) {}
+  }
+
+  auto edges_sees_1b = graph_1.get_edges<std::string>("r2d2", "paco");
+  auto edges_sees_2b = graph_2.get_edges<std::string>("r2d2", "paco");
+  auto edges_sees_3b = graph_3.get_edges<std::string>("r2d2", "paco");
+
+  ASSERT_EQ(edges_sees_1b.size(), 0);
+  ASSERT_EQ(edges_sees_2b.size(), 0);
+  ASSERT_EQ(edges_sees_3b.size(), 0);
+
   finish = true;
   t.join();
 }
@@ -343,8 +359,13 @@ TEST(ros2_knowledge_graphnode, graph_comms_tf)
 
   auto node_1 = ros2_knowledge_graph::new_node("r2d2", "robot");
   auto node_2 = ros2_knowledge_graph::new_node("paco", "person");
+  auto node_3 = ros2_knowledge_graph::new_node("table1", "table");
   graph_1.update_node(node_1);
   graph_1.update_node(node_2);
+  graph_1.update_node(node_3);
+
+  auto edge_string_1 = ros2_knowledge_graph::new_edge<std::string>("paco", "table1", "sees");
+  graph_1.update_edge(edge_string_1);
 
   geometry_msgs::msg::TransformStamped tf1;
   tf1.transform.translation.x = 0.0;
@@ -417,6 +438,9 @@ TEST(ros2_knowledge_graphnode, graph_comms_tf)
   ASSERT_FALSE(tfs_messages.empty());
   ASSERT_TRUE(tf_messages.empty());
 
+  auto tf_edge3 = graph_1.get_edges<geometry_msgs::msg::TransformStamped>("paco", "table1");
+  ASSERT_EQ(tf_edge3.size(), 0);
+
   graph_1.update_tfs();
   graph_2.update_tfs();
   graph_3.update_tfs();
@@ -427,7 +451,7 @@ TEST(ros2_knowledge_graphnode, graph_comms_tf)
   finish = true;
   t.join();
 }
-/*
+
 TEST(ros2_knowledge_graphnode, graph_stress)
 {
   auto node1 = rclcpp::Node::make_shared("test_node_1");
@@ -455,7 +479,7 @@ TEST(ros2_knowledge_graphnode, graph_stress)
 
   rclcpp::Rate rate(200);
   auto start = test_node->now();
-  while (rclcpp::ok() && (test_node->now() - start).seconds() < 40) {
+  while (rclcpp::ok() && (test_node->now() - start).seconds() < 5) {
     uint8_t type = type_dist(generator);
     uint8_t operation = op_dist(generator);
     int graph_id = graph_dist(generator);
@@ -506,7 +530,7 @@ TEST(ros2_knowledge_graphnode, graph_stress)
   finish = true;
   t.join();
 }
-*/
+
 int main(int argc, char ** argv)
 {
   rclcpp::init(argc, argv);

@@ -41,6 +41,8 @@ import rclpy
 import pydot
 import tf2_py
 import tf2_ros
+import numpy
+from ros2_knowledge_graph_msgs.msg import Content, Edge
 
 try:
     unicode
@@ -48,6 +50,31 @@ try:
 except NameError:
     unicode = str
     # we're on python3
+
+
+def euler_from_quaternion(quat):
+    """
+    Convert quaternion (w in last place) to euler roll, pitch, yaw.
+
+    quat = [x, y, z, w]
+    """
+    x = quat[0]
+    y = quat[1]
+    z = quat[2]
+    w = quat[3]
+
+    sinr_cosp = 2 * (w * x + y * z)
+    cosr_cosp = 1 - 2 * (x * x + y * y)
+    roll = numpy.arctan2(sinr_cosp, cosr_cosp)
+
+    sinp = 2 * (w * y - z * x)
+    pitch = numpy.arcsin(sinp)
+
+    siny_cosp = 2 * (w * z + x * y)
+    cosy_cosp = 1 - 2 * (y * y + z * z)
+    yaw = numpy.arctan2(siny_cosp, cosy_cosp)
+
+    return roll, pitch, yaw
 
 class Ros2KnowledgeGraphDotcodeGenerator:
 
@@ -79,21 +106,68 @@ class Ros2KnowledgeGraphDotcodeGenerator:
             simplify=simplify,
             rankdir=orientation)
 
-        for node in ros2_knowledge_graphinst.nodes:
+        for node in ros2_knowledge_graphinst.graph.nodes:
              dotcode_factory.add_node_to_graph(
                  dotgraph,
-                 nodename=node.name,
-                 nodelabel=node.name,
+                 nodename=node.node_name,
+                 nodelabel=node.node_name,
                  shape='ellipse',
-                 url=node.name)
+                 url=node.node_name)
 
-        for edge in ros2_knowledge_graphinst.edges:
+        for edge in ros2_knowledge_graphinst.graph.edges:
+            label = ''
+            if edge.content.type == Content.BOOL:
+              label = '[bool] ' + str(edge.content.bool_value)
+            if edge.content.type == Content.INT:
+              label = '[int] ' + str(edge.content.int_value)
+            if edge.content.type == Content.FLOAT:
+              label = '[float] ' + str(edge.content.float_value)
+            if edge.content.type == Content.DOUBLE:
+              label = '[double] ' + str(edge.content.double_value)
+            if edge.content.type == Content.STRING:
+              label = '[string] ' + edge.content.string_value
+            if edge.content.type == Content.VBOOL:
+              label = '[bool[]] of ' + str(len(edge.content.bool_vector))
+            if edge.content.type == Content.VINT:
+              label = '[int[]] ' + str(len(edge.content.int_vector))
+            if edge.content.type == Content.VFLOAT:
+              label = '[float[]] of ' + str(len(edge.content.float_vector))
+            if edge.content.type == Content.VDOUBLE:
+              label = '[double[]] of ' + str(len(edge.content.double_vector))
+            if edge.content.type == Content.VSTRING:
+              label = '[string[]] ' + str(len(edge.content.string_vector))
+            if edge.content.type == Content.POSE:
+              label = '[pose] (' + (
+                str(edge.content.pose_value.pose.position.x) + ', ' +
+                str(edge.content.pose_value.pose.position.y) + ', ' +
+                str(edge.content.pose_value.pose.position.z) + ')')
+            if edge.content.type == Content.TF or edge.content.type == Content.STATICTF:
+              x = edge.content.tf_value.transform.translation.x
+              y = edge.content.tf_value.transform.translation.x
+              z = edge.content.tf_value.transform.translation.x
+
+              rpy = euler_from_quaternion([
+                edge.content.tf_value.transform.rotation.x,
+                edge.content.tf_value.transform.rotation.y,
+                edge.content.tf_value.transform.rotation.z,
+                edge.content.tf_value.transform.rotation.w])
+
+              label = '[pose] (' + str(x) + ', ' + str(x) + ', ' + str(z) + ') [' + (
+                str(rpy[0]) + ', ' + str(rpy[1]) + ', ' + str(rpy[2]) + ']')
+
+            if edge.content.type == Content.VPOSE:
+              label = '[pose[]] of ' + str(len(edge.content.pose_vector))
+            if edge.content.type == Content.VSTRING:
+              label = '[tf[]] ' + str(len(edge.content.tf_vector))
+            if edge.content.type == Content.ERROR:
+              label = '[error] '
+
             dotcode_factory.add_edge_to_graph(
                 dotgraph,
-                edge.source,
-                edge.target,
-                label= '[' + edge.type + '] ' + edge.content,
-                url='%s %s %s '.format(edge.source, edge.target, edge.content),
+                edge.source_node_id,
+                edge.target_node_id,
+                label= label,
+                url='%s %s %s '.format(edge.source_node_id, edge.target_node_id, label),
                 penwidth=1,
                 color=[0, 0, 0])
             #if edge.type == "tf":

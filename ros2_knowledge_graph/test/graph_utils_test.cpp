@@ -301,6 +301,187 @@ TEST(graph_utils, edge_ops)
   ASSERT_EQ(tf_value2.value(), tf1);
 }
 
+TEST(graph_utils, string)
+{
+  ASSERT_EQ(
+    ros2_knowledge_graph::to_string(ros2_knowledge_graph_msgs::msg::Content::BOOL), "bool");
+  ASSERT_EQ(
+    ros2_knowledge_graph::to_string(ros2_knowledge_graph_msgs::msg::Content::INT), "int");
+  ASSERT_EQ(
+    ros2_knowledge_graph::to_string(ros2_knowledge_graph_msgs::msg::Content::FLOAT), "float");
+  ASSERT_EQ(
+    ros2_knowledge_graph::to_string(ros2_knowledge_graph_msgs::msg::Content::DOUBLE), "double");
+  ASSERT_EQ(
+    ros2_knowledge_graph::to_string(ros2_knowledge_graph_msgs::msg::Content::STRING), "string");
+  ASSERT_EQ(
+    ros2_knowledge_graph::to_string(ros2_knowledge_graph_msgs::msg::Content::VBOOL), "bool[]");
+  ASSERT_EQ(
+    ros2_knowledge_graph::to_string(ros2_knowledge_graph_msgs::msg::Content::VINT), "int[]");
+  ASSERT_EQ(
+    ros2_knowledge_graph::to_string(ros2_knowledge_graph_msgs::msg::Content::VFLOAT), "float[]");
+  ASSERT_EQ(
+    ros2_knowledge_graph::to_string(ros2_knowledge_graph_msgs::msg::Content::VDOUBLE), "double[]");
+  ASSERT_EQ(
+    ros2_knowledge_graph::to_string(ros2_knowledge_graph_msgs::msg::Content::VSTRING), "string[]");
+  ASSERT_EQ(
+    ros2_knowledge_graph::to_string(ros2_knowledge_graph_msgs::msg::Content::POSE), "pose");
+  ASSERT_EQ(
+    ros2_knowledge_graph::to_string(ros2_knowledge_graph_msgs::msg::Content::TF), "tf");
+  ASSERT_EQ(
+    ros2_knowledge_graph::to_string(ros2_knowledge_graph_msgs::msg::Content::STATICTF), "static tf");
+  ASSERT_EQ(
+    ros2_knowledge_graph::to_string(ros2_knowledge_graph_msgs::msg::Content::VPOSE), "pose[]");
+  ASSERT_EQ(
+    ros2_knowledge_graph::to_string(ros2_knowledge_graph_msgs::msg::Content::VTF), "tf[]");
+  ASSERT_EQ(
+    ros2_knowledge_graph::to_string(ros2_knowledge_graph_msgs::msg::Content::ERROR), "error");
+
+  ros2_knowledge_graph_msgs::msg::Content bool_content;
+  bool_content.type = ros2_knowledge_graph_msgs::msg::Content::BOOL;
+  bool_content.bool_value = true;
+  ASSERT_EQ(ros2_knowledge_graph::to_string(bool_content), "true");
+
+  ros2_knowledge_graph_msgs::msg::Content int_content;
+  int_content.type = ros2_knowledge_graph_msgs::msg::Content::INT;
+  int_content.int_value = 1;
+  ASSERT_EQ(ros2_knowledge_graph::to_string(int_content), "1");
+
+  ros2_knowledge_graph_msgs::msg::Content float_content;
+  float_content.type = ros2_knowledge_graph_msgs::msg::Content::FLOAT;
+  float_content.float_value = 1.0;
+  ASSERT_EQ(ros2_knowledge_graph::to_string(float_content), "1.000000");
+
+  ros2_knowledge_graph_msgs::msg::Content double_content;
+  double_content.type = ros2_knowledge_graph_msgs::msg::Content::DOUBLE;
+  double_content.double_value = 1.0;
+  ASSERT_EQ(ros2_knowledge_graph::to_string(double_content), "1.000000");
+
+  ros2_knowledge_graph_msgs::msg::Content string_content;
+  string_content.type = ros2_knowledge_graph_msgs::msg::Content::STRING;
+  string_content.string_value = "Hi";
+  ASSERT_EQ(ros2_knowledge_graph::to_string(string_content), "Hi");
+
+  ros2_knowledge_graph_msgs::msg::Content vbool_content;
+  vbool_content.type = ros2_knowledge_graph_msgs::msg::Content::VBOOL;
+  vbool_content.bool_vector = {true, false};
+  ASSERT_EQ(ros2_knowledge_graph::to_string(vbool_content), "[ true false]");
+
+  ros2_knowledge_graph_msgs::msg::Content vint_content;
+  vint_content.type = ros2_knowledge_graph_msgs::msg::Content::VINT;
+  vint_content.int_vector = {1, 2};
+  ASSERT_EQ(ros2_knowledge_graph::to_string(vint_content), "[ 1 2]");
+
+  ros2_knowledge_graph_msgs::msg::Content vfloat_content;
+  vfloat_content.type = ros2_knowledge_graph_msgs::msg::Content::VFLOAT;
+  vfloat_content.float_vector = {1.0, 2.0};
+  ASSERT_EQ(ros2_knowledge_graph::to_string(vfloat_content), "[ 1.000000 2.000000]");
+
+  ros2_knowledge_graph_msgs::msg::Content vdouble_content;
+  vdouble_content.type = ros2_knowledge_graph_msgs::msg::Content::VDOUBLE;
+  vdouble_content.double_vector =  {1.0, 2.0};
+  ASSERT_EQ(ros2_knowledge_graph::to_string(vdouble_content), "[ 1.000000 2.000000]");
+
+  ros2_knowledge_graph_msgs::msg::Content vstring_content;
+  vstring_content.type = ros2_knowledge_graph_msgs::msg::Content::VSTRING;
+  vstring_content.string_vector = {"Hi", "World"};
+  ASSERT_EQ(ros2_knowledge_graph::to_string(vstring_content), "[ Hi World]");
+
+  ros2_knowledge_graph_msgs::msg::Content pose_content;
+  pose_content.type = ros2_knowledge_graph_msgs::msg::Content::POSE;
+  pose_content.pose_value.pose.position.x = 1.0;
+  pose_content.pose_value.pose.position.y = 2.0;
+  pose_content.pose_value.pose.position.z = 3.0;
+  ASSERT_EQ(ros2_knowledge_graph::to_string(pose_content), "(1.000000 2.000000 3.000000)");
+
+  ros2_knowledge_graph_msgs::msg::Content tf_content;
+  tf_content.type = ros2_knowledge_graph_msgs::msg::Content::TF;
+  tf_content.tf_value.header.frame_id = "dad";
+  tf_content.tf_value.child_frame_id = "son";
+  tf_content.tf_value.transform.translation.x = 1.0;
+  tf_content.tf_value.transform.translation.y = 2.0;
+  tf_content.tf_value.transform.translation.z = 3.0;
+  tf_content.tf_value.transform.rotation.x = 0.0;
+  tf_content.tf_value.transform.rotation.y = 0.0;
+  tf_content.tf_value.transform.rotation.z = 0.0;
+  tf_content.tf_value.transform.rotation.w = 1.0;
+  ASSERT_EQ(
+    ros2_knowledge_graph::to_string(tf_content),
+    "[dad -> son] (1.000000 2.000000 3.000000)");
+
+  ASSERT_EQ(
+    ros2_knowledge_graph::type_from_string("bool"),
+    ros2_knowledge_graph_msgs::msg::Content::BOOL);
+  ASSERT_EQ(
+    ros2_knowledge_graph::type_from_string("int"),
+    ros2_knowledge_graph_msgs::msg::Content::INT);
+  ASSERT_EQ(
+    ros2_knowledge_graph::type_from_string("float"),
+    ros2_knowledge_graph_msgs::msg::Content::FLOAT);
+  ASSERT_EQ(
+    ros2_knowledge_graph::type_from_string("double"),
+    ros2_knowledge_graph_msgs::msg::Content::DOUBLE);
+  ASSERT_EQ(
+    ros2_knowledge_graph::type_from_string("string"),
+    ros2_knowledge_graph_msgs::msg::Content::STRING);
+  ASSERT_EQ(
+    ros2_knowledge_graph::type_from_string("bool[]"),
+    ros2_knowledge_graph_msgs::msg::Content::VBOOL);
+  ASSERT_EQ(
+    ros2_knowledge_graph::type_from_string("int[]"),
+    ros2_knowledge_graph_msgs::msg::Content::VINT);
+  ASSERT_EQ(
+    ros2_knowledge_graph::type_from_string("float[]"),
+    ros2_knowledge_graph_msgs::msg::Content::VFLOAT);
+  ASSERT_EQ(
+    ros2_knowledge_graph::type_from_string("double[]"),
+    ros2_knowledge_graph_msgs::msg::Content::VDOUBLE);
+  ASSERT_EQ(
+    ros2_knowledge_graph::type_from_string("string[]"),
+    ros2_knowledge_graph_msgs::msg::Content::VSTRING);
+  ASSERT_EQ(
+    ros2_knowledge_graph::type_from_string("pose"),
+    ros2_knowledge_graph_msgs::msg::Content::POSE);
+  ASSERT_EQ(
+    ros2_knowledge_graph::type_from_string("tf"),
+    ros2_knowledge_graph_msgs::msg::Content::TF);
+  ASSERT_EQ(
+    ros2_knowledge_graph::type_from_string("static tf"),
+    ros2_knowledge_graph_msgs::msg::Content::STATICTF);
+  ASSERT_EQ(
+    ros2_knowledge_graph::type_from_string("pose[]"),
+    ros2_knowledge_graph_msgs::msg::Content::VPOSE);
+  ASSERT_EQ(
+    ros2_knowledge_graph::type_from_string("tf[]"),
+    ros2_knowledge_graph_msgs::msg::Content::VTF);
+  ASSERT_EQ(
+    ros2_knowledge_graph::type_from_string("error"),
+    ros2_knowledge_graph_msgs::msg::Content::ERROR);
+  ASSERT_EQ(
+    ros2_knowledge_graph::type_from_string("notype"),
+    ros2_knowledge_graph_msgs::msg::Content::ERROR);
+
+  ros2_knowledge_graph_msgs::msg::Node node;
+  node.node_name = "r2d2";
+  node.node_class = "robot";  
+  ros2_knowledge_graph_msgs::msg::Property prop;
+  prop.key = "owner";
+  prop.value.type = ros2_knowledge_graph_msgs::msg::Content::STRING;
+  prop.value.string_value = "Anakin Skywalker";
+  node.properties.push_back(prop);
+
+  ASSERT_EQ(
+    ros2_knowledge_graph::to_string(node), "r2d2 (robot)\nowner: [Anakin Skywalker]");
+
+  ros2_knowledge_graph_msgs::msg::Edge edge;
+  edge.source_node_id = "r2d2";
+  edge.target_node_id = "paco";
+  edge.content.type = ros2_knowledge_graph_msgs::msg::Content::INT;
+  edge.content.int_value = 42;
+  ASSERT_EQ(
+    ros2_knowledge_graph::to_string(edge), "r2d2 -> paco [int]{42}");
+
+}
+
 int main(int argc, char ** argv)
 {
   rclcpp::init(argc, argv);

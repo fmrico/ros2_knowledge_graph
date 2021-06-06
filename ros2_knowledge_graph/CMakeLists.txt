@@ -29,17 +29,12 @@ add_library(${PROJECT_NAME} SHARED
 )
 ament_target_dependencies(${PROJECT_NAME} ${dependencies})
 
-#add_executable(graph_terminal src/graph_terminal.cpp)
-#ament_target_dependencies(graph_terminal ${dependencies})
-#target_link_libraries(graph_terminal ${PROJECT_NAME})
-
 install(DIRECTORY include/
   DESTINATION include/
 )
 
 install(TARGETS
   ${PROJECT_NAME}
-#  graph_terminal
   ARCHIVE DESTINATION lib
   LIBRARY DESTINATION lib
   RUNTIME DESTINATION lib/${PROJECT_NAME}

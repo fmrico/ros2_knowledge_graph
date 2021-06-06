@@ -344,6 +344,184 @@ get_properties(ros2_knowledge_graph_msgs::msg::Node & node)
   return ret;
 }
 
+std::string
+to_string(uint8_t edge_type)
+{
+  switch (edge_type)
+  {
+    case ros2_knowledge_graph_msgs::msg::Content::BOOL:
+      return "bool";
+      break;
+    case ros2_knowledge_graph_msgs::msg::Content::INT:
+      return "int";
+      break;
+    case ros2_knowledge_graph_msgs::msg::Content::FLOAT:
+      return "float";
+      break;
+    case ros2_knowledge_graph_msgs::msg::Content::DOUBLE:
+      return "double";
+      break;
+    case ros2_knowledge_graph_msgs::msg::Content::STRING:
+      return "string";
+      break;
+    case ros2_knowledge_graph_msgs::msg::Content::VBOOL:
+      return "bool[]";
+      break;
+    case ros2_knowledge_graph_msgs::msg::Content::VINT:
+      return "int[]";
+      break;
+    case ros2_knowledge_graph_msgs::msg::Content::VFLOAT:
+      return "float[]";
+      break;
+    case ros2_knowledge_graph_msgs::msg::Content::VDOUBLE:
+      return "double[]";
+      break;
+    case ros2_knowledge_graph_msgs::msg::Content::VSTRING:
+      return "string[]";
+      break;
+    case ros2_knowledge_graph_msgs::msg::Content::POSE:
+      return "pose";
+      break;
+    case ros2_knowledge_graph_msgs::msg::Content::TF:
+      return "tf";
+      break;
+    case ros2_knowledge_graph_msgs::msg::Content::STATICTF:
+      return "static tf";
+      break;
+    case ros2_knowledge_graph_msgs::msg::Content::VPOSE:
+      return "pose[]";
+      break;
+    case ros2_knowledge_graph_msgs::msg::Content::VTF:
+      return "tf[]";
+      break;
+    case ros2_knowledge_graph_msgs::msg::Content::ERROR:
+      return "error";
+      break;  
+    default:
+      return "Unknown";
+      break;
+  }
+}
+
+
+std::string
+to_string(const ros2_knowledge_graph_msgs::msg::Content & content)
+{
+  std::string ret;
+
+  if (content.type == ros2_knowledge_graph_msgs::msg::Content::BOOL) {
+    ret = content.bool_value? "true" : "false";
+  } else if (content.type == ros2_knowledge_graph_msgs::msg::Content::INT) {
+    ret = std::to_string(content.int_value);
+  } else if (content.type == ros2_knowledge_graph_msgs::msg::Content::FLOAT) {
+    ret = std::to_string(content.float_value);
+  } else if (content.type == ros2_knowledge_graph_msgs::msg::Content::DOUBLE) {
+    ret = std::to_string(content.double_value);
+  } else if (content.type == ros2_knowledge_graph_msgs::msg::Content::STRING) {
+    ret = content.string_value;
+  } else if (content.type == ros2_knowledge_graph_msgs::msg::Content::VBOOL) {
+    ret = "[";
+    for (const auto value : content.bool_vector) {
+      ret = ret + " " + (value? "true" : "false");
+    }
+    ret = ret + "]";
+  } else if (content.type == ros2_knowledge_graph_msgs::msg::Content::VINT) {
+    ret = "[";
+    for (const auto value : content.int_vector) {
+      ret = ret + " " + std::to_string(value);
+    }
+    ret = ret + "]";
+  } else if (content.type == ros2_knowledge_graph_msgs::msg::Content::VFLOAT) {
+    ret = "[";
+    for (const auto value : content.float_vector) {
+      ret = ret + " " + std::to_string(value);
+    }
+    ret = ret + "]";
+  } else if (content.type == ros2_knowledge_graph_msgs::msg::Content::VDOUBLE) {
+    ret = "[";
+    for (const auto value : content.double_vector) {
+      ret = ret + " " + std::to_string(value);
+    }
+    ret = ret + "]";
+  } else if (content.type == ros2_knowledge_graph_msgs::msg::Content::VSTRING) {
+    ret = "[";
+    for (const auto value : content.string_vector) {
+      ret = ret + " " + value;
+    }
+    ret = ret + "]";
+  } else if (content.type == ros2_knowledge_graph_msgs::msg::Content::POSE) {
+    ret = "(" + std::to_string(content.pose_value.pose.position.x) + " " +
+      std::to_string(content.pose_value.pose.position.y) + " " +
+      std::to_string(content.pose_value.pose.position.z) + ")";
+    //  ToDo(fmrico): Complete angle
+  } else if (content.type == ros2_knowledge_graph_msgs::msg::Content::TF ||
+    content.type == ros2_knowledge_graph_msgs::msg::Content::STATICTF)
+  {
+    ret = "[" + content.tf_value.header.frame_id + " -> " + content.tf_value.child_frame_id +
+     "] (" + std::to_string(content.tf_value.transform.translation.x) + " " +
+      std::to_string(content.tf_value.transform.translation.y) + " " +
+      std::to_string(content.tf_value.transform.translation.z) + ")";
+    //  ToDo(fmrico): Complete angle
+  } else if (content.type == ros2_knowledge_graph_msgs::msg::Content::VPOSE) {
+    ret = "[";
+    for (const auto value : content.pose_vector) {
+      ret = ret + " " + "(" + std::to_string(value.pose.position.x) + " " +
+        std::to_string(value.pose.position.y) + " " +
+        std::to_string(value.pose.position.z) + ")";
+    }
+    ret = ret + "]";
+  } else if (content.type == ros2_knowledge_graph_msgs::msg::Content::VTF) {
+    ret = "[";
+    for (const auto value : content.tf_vector) {
+      ret = ret + " " + "[" + value.header.frame_id + " -> " + value.child_frame_id +
+        "] (" + std::to_string(value.transform.translation.x) + " " +
+        std::to_string(value.transform.translation.y) + " " +
+        std::to_string(value.transform.translation.z) + ")";
+    }
+    ret = ret + "]";
+  } else {
+    ret = "error";
+  }
+
+  return ret;
+}
+
+uint8_t
+type_from_string(const std::string & type)
+{
+  for (uint8_t i = 0; i < ros2_knowledge_graph_msgs::msg::Content::NUM_TYPES; i++) {
+    if (type == to_string(i)) {
+      return i;
+    }
+  }
+
+  return ros2_knowledge_graph_msgs::msg::Content::ERROR;
+}
+
+std::string
+to_string(const ros2_knowledge_graph_msgs::msg::Node & node)
+{
+  std::string ret;
+  ret = ret + node.node_name + " (" + node.node_class + ")";
+
+  for (const auto & prop : node.properties) {
+    ret = ret + "\n" + prop.key + ": [" + to_string(prop.value) + "]";
+  }
+
+  return ret;
+}
+
+std::string
+to_string(const ros2_knowledge_graph_msgs::msg::Edge & edge)
+{
+  std::string ret;
+  ret = ret + edge.source_node_id + " -> " + edge.target_node_id +
+    " [" + to_string(edge.content.type) + "]" + "{" + to_string(edge.content) + "}";
+
+  return ret;
+}
+
+
 }  // namespace ros2_knowledge_graph
 
 #endif  // ROS2_KNOWLEDGE_GRAPH__GRAPHUTILS_HPP_

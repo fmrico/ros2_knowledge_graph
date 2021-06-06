@@ -21,6 +21,7 @@
 #include <tf2_ros/transform_broadcaster.h>
 #include <tf2_ros/static_transform_broadcaster.h>
 
+#include "ros2_knowledge_graph_msgs/msg/graph_update.hpp"
 #include "ros2_knowledge_graph_msgs/msg/graph.hpp"
 #include "ros2_knowledge_graph_msgs/msg/node.hpp"
 #include "ros2_knowledge_graph_msgs/msg/edge.hpp"
