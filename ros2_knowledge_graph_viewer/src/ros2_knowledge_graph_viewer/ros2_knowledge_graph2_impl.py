@@ -142,7 +142,7 @@ class Ros2KnowledgeGraphImpl(rclpy.node.Node):
           self.graph.edges.append(recv_edge)
 
     def remove_edge(self, recv_edge):
-        self.edges.remove(recv_edge)
+        self.graph.edges.remove(recv_edge)
         
     def graph_update_callback(self, msg):
         self.get_logger().info('I heard: a new graph or update')
