@@ -7,11 +7,15 @@ find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(ros2_knowledge_graph_msgs REQUIRED)
 find_package(tf2_geometry_msgs REQUIRED)
+find_package(tf2 REQUIRED)
+find_package(tf2_ros REQUIRED)
 
 set(dependencies
     rclcpp
     ros2_knowledge_graph_msgs
     tf2_geometry_msgs
+    tf2
+    tf2_ros
 )
 
 include_directories(include)

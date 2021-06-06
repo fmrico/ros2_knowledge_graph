@@ -17,6 +17,10 @@
 
 #include <optional>
 
+#include <tf2_ros/transform_listener.h>
+#include <tf2_ros/transform_broadcaster.h>
+#include <tf2_ros/static_transform_broadcaster.h>
+
 #include "ros2_knowledge_graph_msgs/msg/graph.hpp"
 #include "ros2_knowledge_graph_msgs/msg/node.hpp"
 #include "ros2_knowledge_graph_msgs/msg/edge.hpp"
@@ -47,7 +51,10 @@ public:
   }
 
   const std::vector<ros2_knowledge_graph_msgs::msg::Node> & get_nodes() {return graph_->nodes;}
-  const std::vector<ros2_knowledge_graph_msgs::msg::Edge> & get_edges() {return graph_->edges;}
+  const std::vector<ros2_knowledge_graph_msgs::msg::Edge> & get_edges() {
+    update_tf_edges();
+    return graph_->edges;
+  }
   const std::vector<std::string> get_node_names();
 
   size_t get_num_edges() const;
@@ -62,11 +69,18 @@ protected:
   std::string graph_id_;
   rclcpp::Time last_ts_;
 
-  void publish_tf(const geometry_msgs::msg::TransformStamped & transform);
+  void publish_tf(const ros2_knowledge_graph_msgs::msg::Content & content);
+  void update_tf_edges();
+  void update_tf_edge(ros2_knowledge_graph_msgs::msg::Edge & edge);
   void update_callback(ros2_knowledge_graph_msgs::msg::GraphUpdate::UniquePtr msg);
 private:
   rclcpp::Publisher<ros2_knowledge_graph_msgs::msg::GraphUpdate>::SharedPtr update_pub_;
   rclcpp::Subscription<ros2_knowledge_graph_msgs::msg::GraphUpdate>::SharedPtr update_sub_;
+
+  tf2::BufferCore buffer_;
+  tf2_ros::TransformListener tf_listener_;
+  tf2_ros::TransformBroadcaster tf_broadcaster_;
+  tf2_ros::StaticTransformBroadcaster static_tf_broadcaster_;
 };
 
 template<>

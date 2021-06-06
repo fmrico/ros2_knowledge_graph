@@ -12,6 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include <tf2_ros/transform_listener.h>
+#include <tf2_ros/transform_broadcaster.h>
+#include <tf2_ros/static_transform_broadcaster.h>
 
 #include "ros2_knowledge_graph_msgs/msg/graph.hpp"
 #include "ros2_knowledge_graph_msgs/msg/node.hpp"
@@ -26,7 +29,11 @@ namespace ros2_knowledge_graph
 using std::placeholders::_1;
 
 GraphNode::GraphNode(rclcpp::Node::SharedPtr provided_node)
-: node_(provided_node)
+: node_(provided_node),
+  buffer_(),
+  tf_listener_(buffer_),
+  tf_broadcaster_(node_),
+  static_tf_broadcaster_(node_)
 {
   graph_ = std::make_unique<ros2_knowledge_graph_msgs::msg::Graph>();
   graph_id_ = node_->get_name() + std::to_string(node_->now().seconds());
@@ -171,10 +178,16 @@ GraphNode::get_edges(
 {
   std::vector<ros2_knowledge_graph_msgs::msg::Edge> ret;
 
-  for (const auto & edge : graph_->edges) {
+  for (auto & edge : graph_->edges) {
     if (edge.source_node_id == source &&
       edge.target_node_id == target &&
       edge.content.type == type) {
+ 
+      if (type == ros2_knowledge_graph_msgs::msg::Content::TF ||
+        type == ros2_knowledge_graph_msgs::msg::Content::STATICTF)
+      {
+        update_tf_edge(edge);
+      }
       ret.push_back(edge);
     }
   }
@@ -262,7 +275,7 @@ GraphNode::update_edge(const ros2_knowledge_graph_msgs::msg::Edge & edge, bool s
     {
       mod_edge.content.tf_value.header.frame_id = edge.source_node_id;
       mod_edge.content.tf_value.child_frame_id = edge.target_node_id;
-      publish_tf(mod_edge.content.tf_value);
+      publish_tf(mod_edge.content);
     }
     graph_->edges.push_back(mod_edge);
 
@@ -295,7 +308,7 @@ GraphNode::update_edge(const ros2_knowledge_graph_msgs::msg::Edge & edge, bool s
     } else {
       mod_edge.content.tf_value.header.frame_id = edge.source_node_id;
       mod_edge.content.tf_value.child_frame_id = edge.target_node_id;
-      publish_tf(mod_edge.content.tf_value);
+      publish_tf(mod_edge.content);
     }
   }
   
@@ -396,8 +409,35 @@ GraphNode::update_callback(ros2_knowledge_graph_msgs::msg::GraphUpdate::UniquePt
 }
 
 void
-GraphNode::publish_tf(const geometry_msgs::msg::TransformStamped & transform)
+GraphNode::publish_tf(const ros2_knowledge_graph_msgs::msg::Content & content)
 {
+  if (content.type == ros2_knowledge_graph_msgs::msg::Content::TF) {
+    tf_broadcaster_.sendTransform(content.tf_value);
+  } else if (content.type == ros2_knowledge_graph_msgs::msg::Content::STATICTF) {
+    static_tf_broadcaster_.sendTransform(content.tf_value);
+  } else {
+    RCLCPP_ERROR(node_->get_logger(), "Trying to publish tf with a non-tf edge");
+  }
 
 }
+
+void
+GraphNode::update_tf_edges()
+{
+  for (auto & edge : graph_->edges) {
+    if (edge.content.type == ros2_knowledge_graph_msgs::msg::Content::TF ||
+      edge.content.type == ros2_knowledge_graph_msgs::msg::Content::STATICTF)
+    {
+      update_tf_edge(edge);
+    }
+  }
+}
+
+void
+GraphNode::update_tf_edge(ros2_knowledge_graph_msgs::msg::Edge & edge)
+{
+  edge.content.tf_value = buffer_.lookupTransform(
+    edge.source_node_id, edge.target_node_id, tf2::TimePointZero);
+}
+
 }  // namespace ros2_knowledge_graph

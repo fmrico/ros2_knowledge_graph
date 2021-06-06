@@ -37,6 +37,8 @@ public:
   {}
 
   const ros2_knowledge_graph_msgs::msg::Graph & get_graph() {return *graph_;}
+
+  void update_tfs() {update_tf_edges();}
 };
 
 TEST(ros2_knowledge_graphnode, graph_operations)
@@ -294,6 +296,138 @@ TEST(ros2_knowledge_graphnode, graph_comms)
   t.join();
 }
 
+TEST(ros2_knowledge_graphnode, graph_comms_tf)
+{
+  auto node1 = rclcpp::Node::make_shared("test_node_1");
+  auto node2 = rclcpp::Node::make_shared("test_node_2");
+
+  GraphTest graph_1(node1);
+  GraphTest graph_2(node1);
+  GraphTest graph_3(node2);
+
+  rclcpp::executors::SingleThreadedExecutor exe;
+  exe.add_node(node1);
+  exe.add_node(node2);
+
+  std::vector<ros2_knowledge_graph_msgs::msg::GraphUpdate> updates;
+  auto sub = node2->create_subscription<ros2_knowledge_graph_msgs::msg::GraphUpdate>(
+    "graph_update", rclcpp::QoS(100).reliable(),
+    [&updates] (ros2_knowledge_graph_msgs::msg::GraphUpdate::SharedPtr msg) {
+      updates.push_back(*msg);
+    });
+
+  std::vector<tf2_msgs::msg::TFMessage> tf_messages;
+  auto sub_tf = node2->create_subscription<tf2_msgs::msg::TFMessage>(
+    "/tf", rclcpp::QoS(100),
+    [&tf_messages] (tf2_msgs::msg::TFMessage::SharedPtr msg) {
+      tf_messages.push_back(*msg);
+    });
+
+  std::vector<tf2_msgs::msg::TFMessage> tfs_messages;
+  auto sub_tfs = node2->create_subscription<tf2_msgs::msg::TFMessage>(
+    "/tf_static", rclcpp::QoS(100).transient_local(),
+    [&tfs_messages] (tf2_msgs::msg::TFMessage::SharedPtr msg) {
+      tfs_messages.push_back(*msg);
+    });
+
+
+  bool finish = false;
+  std::thread t([&]() {
+      while (!finish) {exe.spin_some();}
+    });
+
+  {
+    auto start = node1->now();
+    while ((node1->now() - start).seconds() < 0.1) {}
+  }
+
+  auto node_1 = ros2_knowledge_graph::new_node("r2d2", "robot");
+  auto node_2 = ros2_knowledge_graph::new_node("paco", "person");
+  graph_1.update_node(node_1);
+  graph_1.update_node(node_2);
+
+  geometry_msgs::msg::TransformStamped tf1;
+  tf1.transform.translation.x = 0.0;
+  auto edge_tf_1 = ros2_knowledge_graph::new_edge("r2d2", "paco", tf1);
+  graph_1.update_edge(edge_tf_1);
+  {
+    auto start = node1->now();
+    while ((node1->now() - start).seconds() < 0.1) {}
+  }
+
+  updates.clear();
+  tf_messages.clear();
+  tfs_messages.clear();
+  {
+    rclcpp::Rate rate(20);
+    auto start = node1->now();
+    while ((node1->now() - start).seconds() < 1.0) {  
+      edge_tf_1.content.tf_value.transform.translation.x =
+        edge_tf_1.content.tf_value.transform.translation.x + 1.0;
+      graph_1.update_edge(edge_tf_1);
+      rate.sleep();
+    }
+  }
+
+  auto tf_edge = graph_1.get_edges<geometry_msgs::msg::TransformStamped>("r2d2", "paco");
+  ASSERT_EQ(tf_edge.size(), 1u);
+
+  auto content_tf_opt =
+    ros2_knowledge_graph::get_content<geometry_msgs::msg::TransformStamped>(tf_edge[0].content);
+  ASSERT_TRUE(content_tf_opt.has_value());
+  ASSERT_GT(content_tf_opt.value().transform.translation.x, 15.0);
+
+  ASSERT_TRUE(updates.empty());
+  ASSERT_TRUE(tfs_messages.empty());
+  ASSERT_FALSE(tf_messages.empty());
+
+
+  geometry_msgs::msg::TransformStamped tf2;
+  tf2.transform.translation.x = 0.0;
+  auto edge_tf_2 = ros2_knowledge_graph::new_edge("paco", "r2d2", tf2, true);
+  graph_1.update_edge(edge_tf_2);
+  {
+    auto start = node1->now();
+    while ((node1->now() - start).seconds() < 0.1) {}
+  }
+
+  updates.clear();
+  tf_messages.clear();
+  tfs_messages.clear();
+  {
+    rclcpp::Rate rate(20);
+    auto start = node1->now();
+    while ((node1->now() - start).seconds() < 1.0) {  
+      edge_tf_2.content.tf_value.transform.translation.x =
+        edge_tf_2.content.tf_value.transform.translation.x + 1.0;
+      graph_1.update_edge(edge_tf_2);
+      rate.sleep();
+    }
+  }
+
+  auto tf_edge2 = graph_1.get_edges<geometry_msgs::msg::TransformStamped>("paco", "r2d2");
+  ASSERT_EQ(tf_edge2.size(), 1u);
+
+  auto content_tf_opt2 =
+    ros2_knowledge_graph::get_content<geometry_msgs::msg::TransformStamped>(tf_edge2[0].content);
+  ASSERT_TRUE(content_tf_opt2.has_value());
+  ASSERT_GT(content_tf_opt2.value().transform.translation.x, 15.0);
+
+  ASSERT_TRUE(updates.empty());
+  ASSERT_FALSE(tfs_messages.empty());
+  ASSERT_TRUE(tf_messages.empty());
+
+  graph_1.update_tfs();
+  graph_2.update_tfs();
+  graph_3.update_tfs();
+
+  ASSERT_EQ(graph_1.get_graph(), graph_2.get_graph());
+  ASSERT_EQ(graph_1.get_graph(), graph_3.get_graph());
+
+  finish = true;
+  t.join();
+}
+/*
 TEST(ros2_knowledge_graphnode, graph_stress)
 {
   auto node1 = rclcpp::Node::make_shared("test_node_1");
@@ -372,7 +506,7 @@ TEST(ros2_knowledge_graphnode, graph_stress)
   finish = true;
   t.join();
 }
-
+*/
 int main(int argc, char ** argv)
 {
   rclcpp::init(argc, argv);
