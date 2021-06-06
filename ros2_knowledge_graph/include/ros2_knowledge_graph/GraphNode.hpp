@@ -82,7 +82,31 @@ private:
   tf2_ros::TransformListener tf_listener_;
   tf2_ros::TransformBroadcaster tf_broadcaster_;
   tf2_ros::StaticTransformBroadcaster static_tf_broadcaster_;
+
+  friend class GraphFactory;
 };
+
+class GraphFactory
+{
+public:
+  static GraphNode * getInstance(rclcpp::Node::SharedPtr provided_node)
+  {
+    if (instance_ == nullptr) {
+      instance_ = new GraphNode(std::shared_ptr<rclcpp::Node>(provided_node));
+    } else if (provided_node != instance_->node_) {
+      RCLCPP_WARN(provided_node->get_logger(), "Using already existing node [%s]",
+        instance_->node_->get_name());
+    }
+      
+
+    return instance_;
+  }
+
+private:
+  static GraphNode * instance_;
+};
+
+GraphNode * GraphFactory::instance_ = nullptr;
 
 template<>
 std::vector<ros2_knowledge_graph_msgs::msg::Edge>

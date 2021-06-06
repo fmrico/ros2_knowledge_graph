@@ -531,6 +531,132 @@ TEST(ros2_knowledge_graphnode, graph_stress)
   t.join();
 }
 
+
+TEST(ros2_knowledge_graphnode, graph_comms_factory)
+{
+  auto node1 = rclcpp::Node::make_shared("test_node_1");
+  auto node2 = rclcpp::Node::make_shared("test_node_2");
+
+  auto graph_1 = ros2_knowledge_graph::GraphFactory::getInstance(node1);
+  auto graph_2 = ros2_knowledge_graph::GraphFactory::getInstance(node1);
+  auto graph_3 = ros2_knowledge_graph::GraphFactory::getInstance(node2);
+
+  ASSERT_EQ(graph_1, graph_2);
+  ASSERT_EQ(graph_1, graph_3);
+
+  rclcpp::executors::SingleThreadedExecutor exe;
+  exe.add_node(node1);
+  exe.add_node(node2);
+
+  bool finish = false;
+  std::thread t([&]() {
+      while (!finish) {exe.spin_some();}
+    });
+
+  {
+    auto start = node1->now();
+    while ((node1->now() - start).seconds() < 0.1) {}
+  }
+
+  auto node_1 = ros2_knowledge_graph::new_node("r2d2", "robot");
+  graph_1->update_node(node_1);
+
+  {
+    auto start = node1->now();
+    while ((node1->now() - start).seconds() < 0.1) {}
+  }
+
+  ASSERT_TRUE(graph_1->exist_node("r2d2"));
+  ASSERT_TRUE(graph_2->exist_node("r2d2"));
+  ASSERT_TRUE(graph_3->exist_node("r2d2"));
+
+  auto node_2 = ros2_knowledge_graph::new_node("paco", "person");
+  graph_3->update_node(node_2);
+
+  {
+    auto start = node1->now();
+    while ((node1->now() - start).seconds() < 0.1) {}
+  }
+
+  ASSERT_TRUE(graph_1->exist_node("paco"));
+  ASSERT_TRUE(graph_2->exist_node("paco"));
+  ASSERT_TRUE(graph_3->exist_node("paco"));
+
+  ros2_knowledge_graph::add_property(node_2, "age", 42);
+  graph_2->update_node(node_2);
+
+  {
+    auto start = node1->now();
+    while ((node1->now() - start).seconds() < 0.1) {}
+  }
+
+  auto node_2_1 = graph_1->get_node("paco");
+  auto node_2_3 = graph_3->get_node("paco");
+  ASSERT_TRUE(node_2_1.has_value());
+  ASSERT_TRUE(node_2_3.has_value());
+  auto p_age_2_1 = ros2_knowledge_graph::get_property<int>(node_2_1.value(), "age");
+  auto p_age_2_3 = ros2_knowledge_graph::get_property<int>(node_2_3.value(), "age");
+
+  ASSERT_TRUE(p_age_2_1.has_value());
+  ASSERT_TRUE(p_age_2_3.has_value());
+  ASSERT_EQ(p_age_2_1.value(), 42);
+  ASSERT_EQ(p_age_2_3.value(), 42);
+
+  auto node_table = ros2_knowledge_graph::new_node("table1", "table");
+  graph_3->update_node(node_table);
+  auto edge_sees = ros2_knowledge_graph::new_edge<std::string>("r2d2", "paco", "sees");
+  graph_1->update_edge(edge_sees);
+
+  {
+    auto start = node1->now();
+    while ((node1->now() - start).seconds() < 0.1) {}
+  }
+
+  ASSERT_EQ(graph_1->get_num_nodes(), 3);
+  ASSERT_EQ(graph_2->get_num_nodes(), 3);
+  ASSERT_EQ(graph_3->get_num_nodes(), 3);
+
+  auto edges_sees_1 = graph_1->get_edges<std::string>("r2d2", "paco");
+  auto edges_sees_2 = graph_2->get_edges<std::string>("r2d2", "paco");
+  auto edges_sees_3 = graph_3->get_edges<std::string>("r2d2", "paco");
+
+  ASSERT_EQ(edges_sees_1.size(), 1);
+  ASSERT_EQ(edges_sees_2.size(), 1);
+  ASSERT_EQ(edges_sees_3.size(), 1);
+
+  graph_1->remove_node("table1");
+  GraphTest graph_4(node2);
+
+  {
+    auto start = node1->now();
+    while ((node1->now() - start).seconds() < 0.1) {}
+  }
+
+  ASSERT_EQ(graph_1->get_num_nodes(), 2);
+  ASSERT_EQ(graph_2->get_num_nodes(), 2);
+  ASSERT_EQ(graph_3->get_num_nodes(), 2);
+  ASSERT_EQ(graph_4.get_num_nodes(), 2);
+
+  auto edge_to_remove = ros2_knowledge_graph::new_edge<std::string>("r2d2", "paco", "sees");
+  ASSERT_TRUE(graph_1->remove_edge(edge_to_remove));
+
+  {
+    auto start = node1->now();
+    while ((node1->now() - start).seconds() < 0.1) {}
+  }
+
+  auto edges_sees_1b = graph_1->get_edges<std::string>("r2d2", "paco");
+  auto edges_sees_2b = graph_2->get_edges<std::string>("r2d2", "paco");
+  auto edges_sees_3b = graph_3->get_edges<std::string>("r2d2", "paco");
+
+  ASSERT_EQ(edges_sees_1b.size(), 0);
+  ASSERT_EQ(edges_sees_2b.size(), 0);
+  ASSERT_EQ(edges_sees_3b.size(), 0);
+
+  finish = true;
+  t.join();
+}
+
 int main(int argc, char ** argv)
 {
   rclcpp::init(argc, argv);
