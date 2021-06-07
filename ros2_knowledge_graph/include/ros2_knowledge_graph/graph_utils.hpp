@@ -47,60 +47,171 @@ template<class T>
 ros2_knowledge_graph_msgs::msg::Content new_content(const T & content, const bool static_tf = false)
 {
   ros2_knowledge_graph_msgs::msg::Content ret;
+  ret.type = ros2_knowledge_graph_msgs::msg::Content::ERROR;
 
-  if (constexpr (std::is_same<T, bool>::value)) {
-    ret.bool_value = content;
-    ret.type = ros2_knowledge_graph_msgs::msg::Content::BOOL;
-  } else if (constexpr (std::is_same<T, int>::value)) {
-    ret.int_value = content;
-    ret.type = ros2_knowledge_graph_msgs::msg::Content::INT;
-  } else if (constexpr (std::is_same<T, float>::value)) {
-    ret.float_value = content;
-    ret.type = ros2_knowledge_graph_msgs::msg::Content::FLOAT;
-  } else if (constexpr (std::is_same<T, double>::value)) {
-    ret.double_value = content;
-    ret.type = ros2_knowledge_graph_msgs::msg::Content::DOUBLE;
-  } else if (constexpr (std::is_same<T, std::string>::value)) {
-    ret.string_value = content;
-    ret.type = ros2_knowledge_graph_msgs::msg::Content::STRING;
-  } else if (constexpr (std::is_same<T, std::vector<bool>>::value)) {
-    ret.bool_vector = content;
-    ret.type = ros2_knowledge_graph_msgs::msg::Content::VBOOL;
-  } else if (constexpr (std::is_same<T, std::vector<int>>::value)) {
-    ret.int_vector = content;
-    ret.type = ros2_knowledge_graph_msgs::msg::Content::VINT;
-  } else if (constexpr (std::is_same<T, std::vector<float>>::value)) {
-    ret.float_vector = content;
-    ret.type = ros2_knowledge_graph_msgs::msg::Content::VFLOAT;
-  } else if (constexpr (std::is_same<T, std::vector<double>>::value)) {
-    ret.double_vector = content;
-    ret.type = ros2_knowledge_graph_msgs::msg::Content::VDOUBLE;
-  } else if (constexpr (std::is_same<T, std::vector<std::string>>::valu)) {
-    ret.string_vector = content;
-    ret.type = ros2_knowledge_graph_msgs::msg::Content::VSTRING;
-  } else if (constexpr (std::is_same<T, geometry_msgs::msg::PoseStamped>::value)) {
-    ret.pose_value = content;
-    ret.type = ros2_knowledge_graph_msgs::msg::Content::POSE;
-  } else if (constexpr (std::is_same<T, geometry_msgs::msg::TransformStamped>::value)) {
-    ret.tf_value = content;
-    if (static_tf) {
-      ret.type = ros2_knowledge_graph_msgs::msg::Content::STATICTF;
-    } else {
-      ret.type = ros2_knowledge_graph_msgs::msg::Content::TF;
-    }
-  } else if (constexpr (std::is_same<T,  // NOLINT (readability/braces)
-    std::vector<geometry_msgs::msg::PoseStamped>>::value))
-  {
-    ret.pose_vector = content;
-    ret.type = ros2_knowledge_graph_msgs::msg::Content::VPOSE;
-  } else if (constexpr (std::is_same<T,  // NOLINT (readability/braces)
-    std::vector<geometry_msgs::msg::TransformStamped>>::value))
-  {
-    ret.tf_vector = content;
-    ret.type = ros2_knowledge_graph_msgs::msg::Content::VTF;
+  return ret;
+}
+
+template<>
+ros2_knowledge_graph_msgs::msg::Content
+new_content<bool>(const bool & content, const bool static_tf)
+{
+  ros2_knowledge_graph_msgs::msg::Content ret;
+  ret.bool_value = content;
+  ret.type = ros2_knowledge_graph_msgs::msg::Content::BOOL;
+
+  return ret;
+}
+
+template<>
+ros2_knowledge_graph_msgs::msg::Content
+new_content<int>(const int & content, const bool static_tf)
+{
+  ros2_knowledge_graph_msgs::msg::Content ret;
+  ret.int_value = content;
+  ret.type = ros2_knowledge_graph_msgs::msg::Content::INT;
+
+  return ret;
+}
+
+template<>
+ros2_knowledge_graph_msgs::msg::Content
+new_content<float>(const float & content, const bool static_tf)
+{
+  ros2_knowledge_graph_msgs::msg::Content ret;
+  ret.float_value = content;
+  ret.type = ros2_knowledge_graph_msgs::msg::Content::FLOAT;
+
+  return ret;
+}
+
+template<>
+ros2_knowledge_graph_msgs::msg::Content
+new_content<double>(const double & content, const bool static_tf)
+{
+  ros2_knowledge_graph_msgs::msg::Content ret;
+  ret.double_value = content;
+  ret.type = ros2_knowledge_graph_msgs::msg::Content::DOUBLE;
+
+  return ret;
+}
+
+template<>
+ros2_knowledge_graph_msgs::msg::Content
+new_content<std::string>(const std::string & content, const bool static_tf)
+{
+  ros2_knowledge_graph_msgs::msg::Content ret;
+  ret.string_value = content;
+  ret.type = ros2_knowledge_graph_msgs::msg::Content::STRING;
+
+  return ret;
+}
+
+template<>
+ros2_knowledge_graph_msgs::msg::Content
+new_content<std::vector<bool>>(const std::vector<bool> & content, const bool static_tf)
+{
+  ros2_knowledge_graph_msgs::msg::Content ret;
+  ret.bool_vector = content;
+  ret.type = ros2_knowledge_graph_msgs::msg::Content::VBOOL;
+
+  return ret;
+}
+
+template<>
+ros2_knowledge_graph_msgs::msg::Content
+new_content<std::vector<int>>(const std::vector<int> & content, const bool static_tf)
+{
+  ros2_knowledge_graph_msgs::msg::Content ret;
+  ret.int_vector = content;
+  ret.type = ros2_knowledge_graph_msgs::msg::Content::VINT;
+
+  return ret;
+}
+
+template<>
+ros2_knowledge_graph_msgs::msg::Content
+new_content<std::vector<float>>(const std::vector<float> & content, const bool static_tf)
+{
+  ros2_knowledge_graph_msgs::msg::Content ret;
+  ret.float_vector = content;
+  ret.type = ros2_knowledge_graph_msgs::msg::Content::VFLOAT;
+
+  return ret;
+}
+
+template<>
+ros2_knowledge_graph_msgs::msg::Content
+new_content<std::vector<double>>(const std::vector<double> & content, const bool static_tf)
+{
+  ros2_knowledge_graph_msgs::msg::Content ret;
+  ret.double_vector = content;
+  ret.type = ros2_knowledge_graph_msgs::msg::Content::VDOUBLE;
+
+  return ret;
+}
+
+template<>
+ros2_knowledge_graph_msgs::msg::Content
+new_content<std::vector<std::string>>(
+  const std::vector<std::string> & content, const bool static_tf)
+{
+  ros2_knowledge_graph_msgs::msg::Content ret;
+  ret.string_vector = content;
+  ret.type = ros2_knowledge_graph_msgs::msg::Content::VSTRING;
+
+  return ret;
+}
+
+template<>
+ros2_knowledge_graph_msgs::msg::Content
+new_content<geometry_msgs::msg::PoseStamped>(
+  const geometry_msgs::msg::PoseStamped & content, const bool static_tf)
+{
+  ros2_knowledge_graph_msgs::msg::Content ret;
+  ret.pose_value = content;
+  ret.type = ros2_knowledge_graph_msgs::msg::Content::POSE;
+
+  return ret;
+}
+
+template<>
+ros2_knowledge_graph_msgs::msg::Content
+new_content<geometry_msgs::msg::TransformStamped>(
+  const geometry_msgs::msg::TransformStamped & content, const bool static_tf)
+{
+  ros2_knowledge_graph_msgs::msg::Content ret;
+  ret.tf_value = content;
+
+  if (static_tf) {
+    ret.type = ros2_knowledge_graph_msgs::msg::Content::STATICTF;
   } else {
-    ret.type = ros2_knowledge_graph_msgs::msg::Content::ERROR;
+    ret.type = ros2_knowledge_graph_msgs::msg::Content::TF;
   }
+
+  return ret;
+}
+
+template<>
+ros2_knowledge_graph_msgs::msg::Content
+new_content<std::vector<geometry_msgs::msg::PoseStamped>>(
+  const std::vector<geometry_msgs::msg::PoseStamped> & content, const bool static_tf)
+{
+  ros2_knowledge_graph_msgs::msg::Content ret;
+  ret.pose_vector = content;
+  ret.type = ros2_knowledge_graph_msgs::msg::Content::VPOSE;
+
+  return ret;
+}
+
+template<>
+ros2_knowledge_graph_msgs::msg::Content
+new_content<std::vector<geometry_msgs::msg::TransformStamped>>(
+  const std::vector<geometry_msgs::msg::TransformStamped> & content, const bool static_tf)
+{
+  ros2_knowledge_graph_msgs::msg::Content ret;
+  ret.tf_vector = content;
+  ret.type = ros2_knowledge_graph_msgs::msg::Content::VTF;
 
   return ret;
 }
