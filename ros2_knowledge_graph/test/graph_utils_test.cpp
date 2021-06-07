@@ -12,6 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+
+#include <string>
+#include <vector>
+
 #include "ros2_knowledge_graph_msgs/msg/graph.hpp"
 #include "ros2_knowledge_graph_msgs/msg/node.hpp"
 #include "ros2_knowledge_graph_msgs/msg/edge.hpp"
@@ -184,7 +188,7 @@ TEST(graph_utils, content_ops)
 
   auto content_vtf_ret =
     ros2_knowledge_graph::get_content<std::vector<geometry_msgs::msg::TransformStamped>>(
-      content_vtf);
+    content_vtf);
   ASSERT_TRUE(content_vtf_ret.has_value());
   ASSERT_EQ(content_vtf_ret.value().size(), 1);
   ASSERT_EQ(content_vtf_ret.value()[0].transform.translation.x, 7.0);
@@ -260,7 +264,7 @@ TEST(graph_utils, node_ops)
 TEST(graph_utils, edge_ops)
 {
   auto edge_1 = ros2_knowledge_graph::new_edge<bool>("r2d2", "human", true);
-  
+
 
   auto bool_value = ros2_knowledge_graph::get_content<bool>(edge_1.content);
   ASSERT_TRUE(bool_value.has_value());
@@ -268,7 +272,7 @@ TEST(graph_utils, edge_ops)
   ASSERT_EQ(edge_1.content.type, ros2_knowledge_graph_msgs::msg::Content::BOOL);
 
   auto edge_2 = ros2_knowledge_graph::new_edge<int>("r2d2", "human", 1);
-  
+
   auto int_value = ros2_knowledge_graph::get_content<int>(edge_2.content);
   ASSERT_EQ(edge_2.content.type, ros2_knowledge_graph_msgs::msg::Content::INT);
   ASSERT_TRUE(int_value.has_value());
@@ -328,7 +332,8 @@ TEST(graph_utils, string)
   ASSERT_EQ(
     ros2_knowledge_graph::to_string(ros2_knowledge_graph_msgs::msg::Content::TF), "tf");
   ASSERT_EQ(
-    ros2_knowledge_graph::to_string(ros2_knowledge_graph_msgs::msg::Content::STATICTF), "static tf");
+    ros2_knowledge_graph::to_string(ros2_knowledge_graph_msgs::msg::Content::STATICTF),
+    "static tf");
   ASSERT_EQ(
     ros2_knowledge_graph::to_string(ros2_knowledge_graph_msgs::msg::Content::VPOSE), "pose[]");
   ASSERT_EQ(
@@ -378,7 +383,7 @@ TEST(graph_utils, string)
 
   ros2_knowledge_graph_msgs::msg::Content vdouble_content;
   vdouble_content.type = ros2_knowledge_graph_msgs::msg::Content::VDOUBLE;
-  vdouble_content.double_vector =  {1.0, 2.0};
+  vdouble_content.double_vector = {1.0, 2.0};
   ASSERT_EQ(ros2_knowledge_graph::to_string(vdouble_content), "[ 1.000000 2.000000]");
 
   ros2_knowledge_graph_msgs::msg::Content vstring_content;
@@ -462,7 +467,7 @@ TEST(graph_utils, string)
 
   ros2_knowledge_graph_msgs::msg::Node node;
   node.node_name = "r2d2";
-  node.node_class = "robot";  
+  node.node_class = "robot";
   ros2_knowledge_graph_msgs::msg::Property prop;
   prop.key = "owner";
   prop.value.type = ros2_knowledge_graph_msgs::msg::Content::STRING;
@@ -479,7 +484,6 @@ TEST(graph_utils, string)
   edge.content.int_value = 42;
   ASSERT_EQ(
     ros2_knowledge_graph::to_string(edge), "r2d2 -> paco [int]{42}");
-
 }
 
 int main(int argc, char ** argv)

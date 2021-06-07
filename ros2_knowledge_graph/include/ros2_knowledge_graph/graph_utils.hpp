@@ -12,12 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef ROS2_KNOWLEDGE_GRAPH__GRAPHUTILS_HPP_
-#define ROS2_KNOWLEDGE_GRAPH__GRAPHUTILS_HPP_
+#ifndef ROS2_KNOWLEDGE_GRAPH__GRAPH_UTILS_HPP_
+#define ROS2_KNOWLEDGE_GRAPH__GRAPH_UTILS_HPP_
 
 #include <optional>
 #include <iostream>
 #include <vector>
+#include <string>
 
 #include <type_traits>
 
@@ -47,50 +48,54 @@ ros2_knowledge_graph_msgs::msg::Content new_content(const T & content, const boo
 {
   ros2_knowledge_graph_msgs::msg::Content ret;
 
-  if constexpr (std::is_same<T, bool>::value) {
+  if (constexpr (std::is_same<T, bool>::value)) {
     ret.bool_value = content;
     ret.type = ros2_knowledge_graph_msgs::msg::Content::BOOL;
-  } else if constexpr (std::is_same<T, int>::value) {
+  } else if (constexpr (std::is_same<T, int>::value)) {
     ret.int_value = content;
     ret.type = ros2_knowledge_graph_msgs::msg::Content::INT;
-  } else if constexpr (std::is_same<T, float>::value) {
+  } else if (constexpr (std::is_same<T, float>::value)) {
     ret.float_value = content;
     ret.type = ros2_knowledge_graph_msgs::msg::Content::FLOAT;
-  } else if constexpr (std::is_same<T, double>::value) {
+  } else if (constexpr (std::is_same<T, double>::value)) {
     ret.double_value = content;
     ret.type = ros2_knowledge_graph_msgs::msg::Content::DOUBLE;
-  } else if constexpr (std::is_same<T, std::string>::value) {
+  } else if (constexpr (std::is_same<T, std::string>::value)) {
     ret.string_value = content;
     ret.type = ros2_knowledge_graph_msgs::msg::Content::STRING;
-  } else if constexpr (std::is_same<T, std::vector<bool>>::value) {
+  } else if (constexpr (std::is_same<T, std::vector<bool>>::value)) {
     ret.bool_vector = content;
     ret.type = ros2_knowledge_graph_msgs::msg::Content::VBOOL;
-  } else if constexpr (std::is_same<T, std::vector<int>>::value) {
+  } else if (constexpr (std::is_same<T, std::vector<int>>::value)) {
     ret.int_vector = content;
     ret.type = ros2_knowledge_graph_msgs::msg::Content::VINT;
-  } else if constexpr (std::is_same<T, std::vector<float>>::value) {
+  } else if (constexpr (std::is_same<T, std::vector<float>>::value)) {
     ret.float_vector = content;
     ret.type = ros2_knowledge_graph_msgs::msg::Content::VFLOAT;
-  } else if constexpr (std::is_same<T, std::vector<double>>::value) {
+  } else if (constexpr (std::is_same<T, std::vector<double>>::value)) {
     ret.double_vector = content;
     ret.type = ros2_knowledge_graph_msgs::msg::Content::VDOUBLE;
-  } else if constexpr (std::is_same<T, std::vector<std::string>>::value) {
+  } else if (constexpr (std::is_same<T, std::vector<std::string>>::valu)) {
     ret.string_vector = content;
     ret.type = ros2_knowledge_graph_msgs::msg::Content::VSTRING;
-  } else if constexpr (std::is_same<T, geometry_msgs::msg::PoseStamped>::value) {
+  } else if (constexpr (std::is_same<T, geometry_msgs::msg::PoseStamped>::value)) {
     ret.pose_value = content;
     ret.type = ros2_knowledge_graph_msgs::msg::Content::POSE;
-  } else if constexpr (std::is_same<T, geometry_msgs::msg::TransformStamped>::value) {
+  } else if (constexpr (std::is_same<T, geometry_msgs::msg::TransformStamped>::value)) {
     ret.tf_value = content;
     if (static_tf) {
       ret.type = ros2_knowledge_graph_msgs::msg::Content::STATICTF;
     } else {
       ret.type = ros2_knowledge_graph_msgs::msg::Content::TF;
     }
-  } else if constexpr (std::is_same<T, std::vector<geometry_msgs::msg::PoseStamped>>::value) {
+  } else if (constexpr (std::is_same<T,  // NOLINT (readability/braces)
+    std::vector<geometry_msgs::msg::PoseStamped>>::value))
+  {
     ret.pose_vector = content;
     ret.type = ros2_knowledge_graph_msgs::msg::Content::VPOSE;
-  } else if constexpr (std::is_same<T, std::vector<geometry_msgs::msg::TransformStamped>>::value) {
+  } else if (constexpr (std::is_same<T,  // NOLINT (readability/braces)
+    std::vector<geometry_msgs::msg::TransformStamped>>::value))
+  {
     ret.tf_vector = content;
     ret.type = ros2_knowledge_graph_msgs::msg::Content::VTF;
   } else {
@@ -242,7 +247,7 @@ std::optional<geometry_msgs::msg::TransformStamped> get_content(
   const ros2_knowledge_graph_msgs::msg::Content & content)
 {
   if (content.type == ros2_knowledge_graph_msgs::msg::Content::TF ||
-    content.type == ros2_knowledge_graph_msgs::msg::Content::STATICTF) 
+    content.type == ros2_knowledge_graph_msgs::msg::Content::STATICTF)
   {
     return content.tf_value;
   } else {
@@ -273,7 +278,9 @@ std::optional<std::vector<geometry_msgs::msg::TransformStamped>> get_content(
 }
 
 template<class T>
-bool add_property(ros2_knowledge_graph_msgs::msg::Node & node, const std::string key, const T & content)
+bool add_property(
+  ros2_knowledge_graph_msgs::msg::Node & node, const std::string key,
+  const T & content)
 {
   bool found = false;
   auto newc = new_content<T>(content);
@@ -284,7 +291,7 @@ bool add_property(ros2_knowledge_graph_msgs::msg::Node & node, const std::string
   }
 
   auto it = node.properties.begin();
-  while (!found && it!= node.properties.end()) {
+  while (!found && it != node.properties.end()) {
     if (it->key == key) {
       found = true;
       it->value = newc;
@@ -307,7 +314,7 @@ template<class T>
 std::optional<T> get_property(ros2_knowledge_graph_msgs::msg::Node & node, const std::string key)
 {
   auto it = node.properties.begin();
-  while (it!= node.properties.end()) {
+  while (it != node.properties.end()) {
     if (it->key == key) {
       return get_content<T>(it->value);
     } else {
@@ -322,7 +329,7 @@ uint8_t
 get_property_type(ros2_knowledge_graph_msgs::msg::Node & node, const std::string key)
 {
   auto it = node.properties.begin();
-  while (it!= node.properties.end()) {
+  while (it != node.properties.end()) {
     if (it->key == key) {
       return it->value.type;
     } else {
@@ -347,8 +354,7 @@ get_properties(ros2_knowledge_graph_msgs::msg::Node & node)
 std::string
 to_string(uint8_t edge_type)
 {
-  switch (edge_type)
-  {
+  switch (edge_type) {
     case ros2_knowledge_graph_msgs::msg::Content::BOOL:
       return "bool";
       break;
@@ -396,7 +402,7 @@ to_string(uint8_t edge_type)
       break;
     case ros2_knowledge_graph_msgs::msg::Content::ERROR:
       return "error";
-      break;  
+      break;
     default:
       return "Unknown";
       break;
@@ -410,7 +416,7 @@ to_string(const ros2_knowledge_graph_msgs::msg::Content & content)
   std::string ret;
 
   if (content.type == ros2_knowledge_graph_msgs::msg::Content::BOOL) {
-    ret = content.bool_value? "true" : "false";
+    ret = content.bool_value ? "true" : "false";
   } else if (content.type == ros2_knowledge_graph_msgs::msg::Content::INT) {
     ret = std::to_string(content.int_value);
   } else if (content.type == ros2_knowledge_graph_msgs::msg::Content::FLOAT) {
@@ -422,7 +428,7 @@ to_string(const ros2_knowledge_graph_msgs::msg::Content & content)
   } else if (content.type == ros2_knowledge_graph_msgs::msg::Content::VBOOL) {
     ret = "[";
     for (const auto value : content.bool_vector) {
-      ret = ret + " " + (value? "true" : "false");
+      ret = ret + " " + (value ? "true" : "false");
     }
     ret = ret + "]";
   } else if (content.type == ros2_knowledge_graph_msgs::msg::Content::VINT) {
@@ -454,11 +460,11 @@ to_string(const ros2_knowledge_graph_msgs::msg::Content & content)
       std::to_string(content.pose_value.pose.position.y) + " " +
       std::to_string(content.pose_value.pose.position.z) + ")";
     //  ToDo(fmrico): Complete angle
-  } else if (content.type == ros2_knowledge_graph_msgs::msg::Content::TF ||
+  } else if (content.type == ros2_knowledge_graph_msgs::msg::Content::TF ||  // NOLINT (readability/braces)
     content.type == ros2_knowledge_graph_msgs::msg::Content::STATICTF)
   {
     ret = "[" + content.tf_value.header.frame_id + " -> " + content.tf_value.child_frame_id +
-     "] (" + std::to_string(content.tf_value.transform.translation.x) + " " +
+      "] (" + std::to_string(content.tf_value.transform.translation.x) + " " +
       std::to_string(content.tf_value.transform.translation.y) + " " +
       std::to_string(content.tf_value.transform.translation.z) + ")";
     //  ToDo(fmrico): Complete angle
@@ -524,4 +530,4 @@ to_string(const ros2_knowledge_graph_msgs::msg::Edge & edge)
 
 }  // namespace ros2_knowledge_graph
 
-#endif  // ROS2_KNOWLEDGE_GRAPH__GRAPHUTILS_HPP_
+#endif  // ROS2_KNOWLEDGE_GRAPH__GRAPH_UTILS_HPP_

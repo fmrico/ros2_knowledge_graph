@@ -12,9 +12,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+
 #include <tf2_ros/transform_listener.h>
 #include <tf2_ros/transform_broadcaster.h>
 #include <tf2_ros/static_transform_broadcaster.h>
+
+#include <string>
+#include <vector>
+#include <memory>
 
 #include "ros2_knowledge_graph_msgs/msg/graph.hpp"
 #include "ros2_knowledge_graph_msgs/msg/node.hpp"
@@ -42,7 +47,7 @@ GraphNode::GraphNode(rclcpp::Node::SharedPtr provided_node)
     "graph_update", rclcpp::QoS(1000).reliable());
   update_sub_ = node_->create_subscription<ros2_knowledge_graph_msgs::msg::GraphUpdate>(
     "graph_update", rclcpp::QoS(100).reliable(),
-    std::bind(&GraphNode::update_callback, this,_1));
+    std::bind(&GraphNode::update_callback, this, _1));
 
   last_ts_ = node_->now();
 
@@ -181,8 +186,8 @@ GraphNode::get_edges(
   for (auto & edge : graph_->edges) {
     if (edge.source_node_id == source &&
       edge.target_node_id == target &&
-      edge.content.type == type) {
- 
+      edge.content.type == type)
+    {
       if (type == ros2_knowledge_graph_msgs::msg::Content::TF ||
         type == ros2_knowledge_graph_msgs::msg::Content::STATICTF)
       {
@@ -216,14 +221,14 @@ GraphNode::update_node(const ros2_knowledge_graph_msgs::msg::Node & node, bool s
     if (it->node_name == node.node_name) {
       *it = node;
       found = true;
-    } 
+    }
     ++it;
   }
 
   if (!found) {
     graph_->nodes.push_back(node);
   }
-  
+
   if (sync) {
     ros2_knowledge_graph_msgs::msg::GraphUpdate update_msg;
     update_msg.stamp = node_->now();
@@ -260,19 +265,19 @@ GraphNode::update_edge(const ros2_knowledge_graph_msgs::msg::Edge & edge, bool s
     if (it->source_node_id == edge.source_node_id &&
       it->target_node_id == edge.target_node_id &&
       it->content.type == edge.content.type && (
-      it->content.type != ros2_knowledge_graph_msgs::msg::Content::STRING ||
-      (it->content.type == ros2_knowledge_graph_msgs::msg::Content::STRING &&
-      it->content.string_value == edge.content.string_value)))
+        it->content.type != ros2_knowledge_graph_msgs::msg::Content::STRING ||
+        (it->content.type == ros2_knowledge_graph_msgs::msg::Content::STRING &&
+        it->content.string_value == edge.content.string_value)))
     {
       *it = edge;
       found = true;
-    } 
+    }
     ++it;
   }
 
   ros2_knowledge_graph_msgs::msg::Edge mod_edge = edge;
   if (!found) {
-    if (mod_edge.content.type == ros2_knowledge_graph_msgs::msg::Content::STATICTF || 
+    if (mod_edge.content.type == ros2_knowledge_graph_msgs::msg::Content::STATICTF ||
       mod_edge.content.type == ros2_knowledge_graph_msgs::msg::Content::TF)
     {
       mod_edge.content.tf_value.header.frame_id = edge.source_node_id;
@@ -293,7 +298,7 @@ GraphNode::update_edge(const ros2_knowledge_graph_msgs::msg::Edge & edge, bool s
 
     last_ts_ = node_->now();
   } else {
-    if (mod_edge.content.type != ros2_knowledge_graph_msgs::msg::Content::STATICTF && 
+    if (mod_edge.content.type != ros2_knowledge_graph_msgs::msg::Content::STATICTF &&
       mod_edge.content.type != ros2_knowledge_graph_msgs::msg::Content::TF)
     {
       if (sync) {
@@ -313,7 +318,7 @@ GraphNode::update_edge(const ros2_knowledge_graph_msgs::msg::Edge & edge, bool s
       publish_tf(mod_edge.content);
     }
   }
-  
+
   return true;
 }
 
@@ -420,7 +425,6 @@ GraphNode::publish_tf(const ros2_knowledge_graph_msgs::msg::Content & content)
   } else {
     RCLCPP_ERROR(node_->get_logger(), "Trying to publish tf with a non-tf edge");
   }
-
 }
 
 void

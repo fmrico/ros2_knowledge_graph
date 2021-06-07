@@ -24,7 +24,7 @@ set(BICAGRAPH_SOURCES
   src/ros2_knowledge_graph/GraphNode.cpp
 )
 
-add_library(${PROJECT_NAME} SHARED 
+add_library(${PROJECT_NAME} SHARED
   src/ros2_knowledge_graph/GraphNode.cpp
 )
 ament_target_dependencies(${PROJECT_NAME} ${dependencies})

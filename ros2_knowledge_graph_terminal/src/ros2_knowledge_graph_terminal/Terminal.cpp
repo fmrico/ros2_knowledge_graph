@@ -317,9 +317,8 @@ void
 Terminal::process_add_edge(std::vector<std::string> & command, std::ostringstream & os)
 {
   if (command.size() >= 4) {
-
     while (command.size() > 4) {
-      command[command.size() - 2] =  command[command.size() - 2] + " " + command.back();
+      command[command.size() - 2] = command[command.size() - 2] + " " + command.back();
       command.pop_back();
     }
 
@@ -332,7 +331,8 @@ Terminal::process_add_edge(std::vector<std::string> & command, std::ostringstrea
     if (edge.has_value()) {
       graph_->update_edge(edge.value());
     } else {
-      os << "Could not add the edge [" << command[2] << "] " << command[0] << " -> " << command[1] << std::endl;
+      os << "Could not add the edge [" << command[2] << "] " << command[0] <<
+        " -> " << command[1] << std::endl;
     }
   } else {
     os << "\tUsage: \n\t\tadd edge [source] [target] [type] [content]" <<
@@ -377,9 +377,8 @@ void
 Terminal::process_remove_edge(std::vector<std::string> & command, std::ostringstream & os)
 {
   if (command.size() >= 4) {
-
     while (command.size() > 4) {
-      command[command.size() - 2] =  command[command.size() - 2] + " " + command.back();
+      command[command.size() - 2] = command[command.size() - 2] + " " + command.back();
       command.pop_back();
     }
 
@@ -392,7 +391,8 @@ Terminal::process_remove_edge(std::vector<std::string> & command, std::ostringst
     if (edge.has_value()) {
       graph_->remove_edge(edge.value());
     } else {
-      os << "Could not remove the edge [" << command[2] << "] " << command[0] << " -> " << command[1] << std::endl;
+      os << "Could not remove the edge [" << command[2] << "] " <<
+        command[0] << " -> " << command[1] << std::endl;
     }
   } else {
     os << "\tUsage: \n\t\tremove edge [source] [target] [type] [content]" <<
@@ -447,7 +447,10 @@ void
 Terminal::process_get_edge(std::vector<std::string> & command, std::ostringstream & os)
 {
   if (command.size() == 3) {
-    auto edges = graph_->get_edges(command[0], command[1], ros2_knowledge_graph::type_from_string(command[2]));
+    auto edges =
+      graph_->get_edges(
+      command[0], command[1],
+      ros2_knowledge_graph::type_from_string(command[2]));
 
     os << "Edges: " << edges.size() << std::endl;
     for (const auto & edge : edges) {
@@ -493,7 +496,7 @@ Terminal::process_get_edges(std::vector<std::string> & command, std::ostringstre
 
 void
 Terminal::process_print(std::vector<std::string> & command, std::ostringstream & os)
-{    
+{
   const auto & nodes = graph_->get_nodes();
 
   os << "Nodes: " << nodes.size() << std::endl;
@@ -508,7 +511,5 @@ Terminal::process_print(std::vector<std::string> & command, std::ostringstream &
     os << "\t" << ros2_knowledge_graph::to_string(edge) << std::endl;
   }
 }
-
-
 
 }  // namespace ros2_knowledge_graph_terminal

@@ -12,14 +12,18 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+
 #ifndef ROS2_KNOWLEDGE_GRAPH__GRAPHNODE_HPP_
 #define ROS2_KNOWLEDGE_GRAPH__GRAPHNODE_HPP_
-
-#include <optional>
 
 #include <tf2_ros/transform_listener.h>
 #include <tf2_ros/transform_broadcaster.h>
 #include <tf2_ros/static_transform_broadcaster.h>
+
+#include <optional>
+#include <string>
+#include <vector>
+#include <memory>
 
 #include "ros2_knowledge_graph_msgs/msg/graph_update.hpp"
 #include "ros2_knowledge_graph_msgs/msg/graph.hpp"
@@ -52,7 +56,8 @@ public:
   }
 
   const std::vector<ros2_knowledge_graph_msgs::msg::Node> & get_nodes() {return graph_->nodes;}
-  const std::vector<ros2_knowledge_graph_msgs::msg::Edge> & get_edges() {
+  const std::vector<ros2_knowledge_graph_msgs::msg::Edge> & get_edges()
+  {
     update_tf_edges();
     return graph_->edges;
   }
@@ -74,6 +79,7 @@ protected:
   void update_tf_edges();
   void update_tf_edge(ros2_knowledge_graph_msgs::msg::Edge & edge);
   void update_callback(ros2_knowledge_graph_msgs::msg::GraphUpdate::UniquePtr msg);
+
 private:
   rclcpp::Publisher<ros2_knowledge_graph_msgs::msg::GraphUpdate>::SharedPtr update_pub_;
   rclcpp::Subscription<ros2_knowledge_graph_msgs::msg::GraphUpdate>::SharedPtr update_sub_;
@@ -94,11 +100,10 @@ public:
     if (instance_ == nullptr) {
       instance_ = new GraphNode(std::shared_ptr<rclcpp::Node>(provided_node));
     } else if (provided_node != instance_->node_) {
-      RCLCPP_WARN(provided_node->get_logger(), "Using already existing node [%s]",
+      RCLCPP_WARN(
+        provided_node->get_logger(), "Using already existing node [%s]",
         instance_->node_->get_name());
     }
-      
-
     return instance_;
   }
 
@@ -163,7 +168,7 @@ GraphNode::get_edges<geometry_msgs::msg::TransformStamped>(
 {
   auto tf_result = get_edges(source, target, ros2_knowledge_graph_msgs::msg::Content::TF);
   auto tfs_result = get_edges(source, target, ros2_knowledge_graph_msgs::msg::Content::STATICTF);
-  
+
   tf_result.insert(tf_result.begin(), tfs_result.begin(), tfs_result.end());
 
   return tf_result;

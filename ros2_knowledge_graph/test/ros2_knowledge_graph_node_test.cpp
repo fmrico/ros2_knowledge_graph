@@ -32,7 +32,7 @@
 class GraphTest : public ros2_knowledge_graph::GraphNode
 {
 public:
-  GraphTest(rclcpp::Node::SharedPtr provided_node)
+  explicit GraphTest(rclcpp::Node::SharedPtr provided_node)
   : GraphNode(provided_node)
   {}
 
@@ -155,8 +155,8 @@ TEST(ros2_knowledge_graphnode, graph_operations)
 
   auto edge_int_1_ret =
     ros2_knowledge_graph::get_content<int>(
-      graph_node.get_edges<int>("r2d2", "paco").front().content);
-  
+    graph_node.get_edges<int>("r2d2", "paco").front().content);
+
   ASSERT_EQ(edge_int_1_ret.value(), 2);
 
   geometry_msgs::msg::TransformStamped tf1;
@@ -328,21 +328,21 @@ TEST(ros2_knowledge_graphnode, graph_comms_tf)
   std::vector<ros2_knowledge_graph_msgs::msg::GraphUpdate> updates;
   auto sub = node2->create_subscription<ros2_knowledge_graph_msgs::msg::GraphUpdate>(
     "graph_update", rclcpp::QoS(100).reliable(),
-    [&updates] (ros2_knowledge_graph_msgs::msg::GraphUpdate::SharedPtr msg) {
+    [&updates](ros2_knowledge_graph_msgs::msg::GraphUpdate::SharedPtr msg) {
       updates.push_back(*msg);
     });
 
   std::vector<tf2_msgs::msg::TFMessage> tf_messages;
   auto sub_tf = node2->create_subscription<tf2_msgs::msg::TFMessage>(
     "/tf", rclcpp::QoS(100),
-    [&tf_messages] (tf2_msgs::msg::TFMessage::SharedPtr msg) {
+    [&tf_messages](tf2_msgs::msg::TFMessage::SharedPtr msg) {
       tf_messages.push_back(*msg);
     });
 
   std::vector<tf2_msgs::msg::TFMessage> tfs_messages;
   auto sub_tfs = node2->create_subscription<tf2_msgs::msg::TFMessage>(
     "/tf_static", rclcpp::QoS(100).transient_local(),
-    [&tfs_messages] (tf2_msgs::msg::TFMessage::SharedPtr msg) {
+    [&tfs_messages](tf2_msgs::msg::TFMessage::SharedPtr msg) {
       tfs_messages.push_back(*msg);
     });
 
@@ -382,7 +382,7 @@ TEST(ros2_knowledge_graphnode, graph_comms_tf)
   {
     rclcpp::Rate rate(20);
     auto start = node1->now();
-    while ((node1->now() - start).seconds() < 1.0) {  
+    while ((node1->now() - start).seconds() < 1.0) {
       edge_tf_1.content.tf_value.transform.translation.x =
         edge_tf_1.content.tf_value.transform.translation.x + 1.0;
       graph_1.update_edge(edge_tf_1);
@@ -418,7 +418,7 @@ TEST(ros2_knowledge_graphnode, graph_comms_tf)
   {
     rclcpp::Rate rate(20);
     auto start = node1->now();
-    while ((node1->now() - start).seconds() < 1.0) {  
+    while ((node1->now() - start).seconds() < 1.0) {
       edge_tf_2.content.tf_value.transform.translation.x =
         edge_tf_2.content.tf_value.transform.translation.x + 1.0;
       graph_1.update_edge(edge_tf_2);
