@@ -1,7 +1,0 @@
-<class_libraries>
-  <library path="TFLayer">
-    <class type="ros2_kg_tf_plugin::TFLayer" base_class_type="ros2_knowledge_graph::Layer">
-      <description></description>
-    </class>
-  </library>
-</class_libraries>

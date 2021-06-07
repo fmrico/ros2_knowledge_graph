@@ -24,7 +24,18 @@ int main(int argc, char ** argv)
   rclcpp::init(argc, argv);
   auto terminal_node = std::make_shared<ros2_knowledge_graph_terminal::Terminal>();
 
+  rclcpp::executors::SingleThreadedExecutor exe;
+  exe.add_node(terminal_node->get_node_base_interface());
+
+  bool finish = false;
+  std::thread t([&]() {
+      while (!finish) {exe.spin_some();}
+    });
+
   terminal_node->run_console();
+
+  finish = true;
+  t.join();
 
   rclcpp::shutdown();
   return 0;

@@ -1,4 +1,4 @@
-// Copyright 2019 Intelligent Robotics Lab
+// Copyright 2021 Intelligent Robotics Lab
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,109 +12,325 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include <iostream>
-#include <memory>
+
+#include <tf2_ros/transform_listener.h>
+#include <tf2_ros/transform_broadcaster.h>
+#include <tf2_ros/static_transform_broadcaster.h>
+
 #include <string>
-#include <utility>
-#include <list>
-#include <map>
-#include <algorithm>
-#include <sstream>
 #include <vector>
-#include <mutex>
+#include <memory>
 
-#include "ros2_knowledge_graph/GraphNode.hpp"
-
+#include "ros2_knowledge_graph_msgs/msg/graph.hpp"
+#include "ros2_knowledge_graph_msgs/msg/node.hpp"
+#include "ros2_knowledge_graph_msgs/msg/edge.hpp"
 #include "ros2_knowledge_graph_msgs/msg/graph_update.hpp"
 
+#include "ros2_knowledge_graph/GraphNode.hpp"
 
 namespace ros2_knowledge_graph
 {
 
-GraphNode::GraphNode(const std::string & provided_node_name)
-: node_name_(provided_node_name + "_graph"),
-  lp_loader_("ros2_knowledge_graph", "ros2_knowledge_graph::Layer"),
-  started_(false)
+using std::placeholders::_1;
+
+GraphNode::GraphNode(rclcpp::Node::SharedPtr provided_node)
+: node_(provided_node),
+  buffer_(),
+  tf_listener_(buffer_),
+  tf_broadcaster_(node_),
+  static_tf_broadcaster_(node_)
 {
-}
+  graph_ = std::make_unique<ros2_knowledge_graph_msgs::msg::Graph>();
+  graph_id_ = node_->get_name() + std::to_string(node_->now().seconds());
 
-void
-GraphNode::start()
-{
-  node_ = std::make_shared<rclcpp::Node>(node_name_);
-
-  std::vector<std::string> default_id, default_type;
-  default_type.push_back("ros2_kg_tf_plugin::TFLayer");
-  default_id.push_back("TFLayer");
-
-  node_->declare_parameter("layer_plugin_ids", default_id);
-  node_->declare_parameter("layer_plugin_types", default_type);
-  node_->get_parameter("layer_plugin_ids", layer_ids_);
-  node_->get_parameter("layer_plugin_types", layer_types_);
-
-  for (uint i = 0; i != layer_types_.size(); i++) {
-    try {
-      ros2_knowledge_graph::Layer::Ptr layer =
-        lp_loader_.createUniqueInstance(layer_types_[i]);
-      layer->configure(node_);
-      RCLCPP_DEBUG(
-        node_->get_logger(), "Created layer : %s of type %s",
-        layer_ids_[i].c_str(), layer_types_[i].c_str());
-      layers_.insert({layer_ids_[i], layer});
-    } catch (const pluginlib::PluginlibException & ex) {
-      RCLCPP_FATAL(node_->get_logger(), "Failed to create layer. Exception: %s", ex.what());
-      exit(-1);
-    }
-
-    started_ = true;
-  }
+  update_pub_ = node_->create_publisher<ros2_knowledge_graph_msgs::msg::GraphUpdate>(
+    "graph_update", rclcpp::QoS(1000).reliable());
+  update_sub_ = node_->create_subscription<ros2_knowledge_graph_msgs::msg::GraphUpdate>(
+    "graph_update", rclcpp::QoS(100).reliable(),
+    std::bind(&GraphNode::update_callback, this, _1));
 
   last_ts_ = node_->now();
 
-  using namespace std::placeholders;
-  update_pub_ = node_->create_publisher<ros2_knowledge_graph_msgs::msg::GraphUpdate>(
-    "/graph_updates", rclcpp::QoS(1000).reliable());
-  update_sub_ = node_->create_subscription<ros2_knowledge_graph_msgs::msg::GraphUpdate>(
-    "/graph_updates", rclcpp::QoS(1000).reliable(),
-    std::bind(&GraphNode::update_callback, this, _1));
+  ros2_knowledge_graph_msgs::msg::GraphUpdate hello_msg;
+  hello_msg.stamp = node_->now();
+  hello_msg.node_id = graph_id_;
+  hello_msg.operation_type = ros2_knowledge_graph_msgs::msg::GraphUpdate::REQSYNC;
+  hello_msg.element_type = ros2_knowledge_graph_msgs::msg::GraphUpdate::GRAPH;
+  hello_msg.graph = *graph_;
+  update_pub_->publish(hello_msg);
+}
 
-  rclcpp::spin_some(node_);
+bool
+GraphNode::remove_node(const std::string node, bool sync)
+{
+  bool removed = false;
+  auto it = graph_->nodes.begin();
+  while (!removed && it != graph_->nodes.end()) {
+    if (it->node_name == node) {
+      it = graph_->nodes.erase(it);
+      removed = true;
+    } else {
+      ++it;
+    }
+  }
 
-  sync_spin_t_ = std::thread(
-    [this] {
-      rclcpp::spin(this->node_);
-    });
-  sync_spin_t_.detach();
+  if (removed) {
+    auto ite = graph_->edges.begin();
+    while (ite != graph_->edges.end()) {
+      if (ite->source_node_id == node || ite->source_node_id == node) {
+        ite = graph_->edges.erase(ite);
+      } else {
+        ++ite;
+      }
+    }
+  }
 
-  RCLCPP_DEBUG(node_->get_logger(), "Waiting 2 seconds for a complete startup...");
-  rclcpp::sleep_for(std::chrono::seconds(2));
-  RCLCPP_DEBUG(node_->get_logger(), "Starting");
+  if (removed) {
+    if (sync) {
+      ros2_knowledge_graph_msgs::msg::GraphUpdate update_msg;
+      update_msg.stamp = node_->now();
+      update_msg.node_id = graph_id_;
+      update_msg.operation_type = ros2_knowledge_graph_msgs::msg::GraphUpdate::REMOVE;
+      update_msg.element_type = ros2_knowledge_graph_msgs::msg::GraphUpdate::NODE;
+      update_msg.removed_node = node;
+      update_pub_->publish(update_msg);
+    }
 
+    last_ts_ = node_->now();
+  }
 
-  std::lock_guard<std::mutex> lock(mutex_);
+  return removed;
+}
 
-  RCLCPP_DEBUG(node_->get_logger(), "Sending SYNC");
-  ros2_knowledge_graph_msgs::msg::GraphUpdate msg;
-  msg.stamp = node_->now();
-  msg.node_id = node_->get_name();
-  msg.operation_type = ros2_knowledge_graph_msgs::msg::GraphUpdate::REQSYNC;
-  msg.element_type = ros2_knowledge_graph_msgs::msg::GraphUpdate::GRAPH;
-  msg.object = graph_.to_string();
-  update_pub_->publish(msg);
+bool
+GraphNode::exist_node(const std::string node)
+{
+  return get_node(node).has_value();
+}
+
+std::optional<ros2_knowledge_graph_msgs::msg::Node>
+GraphNode::get_node(const std::string node)
+{
+  auto it = graph_->nodes.begin();
+  while (it != graph_->nodes.end()) {
+    if (it->node_name == node) {
+      return *it;
+    } else {
+      ++it;
+    }
+  }
+
+  return {};
+}
+
+const std::vector<std::string>
+GraphNode::get_node_names()
+{
+  std::vector<std::string> ret;
+  for (const auto & node : graph_->nodes) {
+    ret.push_back(node.node_name);
+  }
+  return ret;
+}
+
+bool
+GraphNode::remove_edge(const ros2_knowledge_graph_msgs::msg::Edge & edge, bool sync)
+{
+  bool removed = false;
+
+  auto it = graph_->edges.begin();
+  while (it != graph_->edges.end()) {
+    if (it->source_node_id == edge.source_node_id &&
+      it->target_node_id == edge.target_node_id &&
+      it->content.type == edge.content.type)
+    {
+      if (it->content.type == ros2_knowledge_graph_msgs::msg::Content::STRING) {
+        if (it->content.string_value == edge.content.string_value) {
+          it = graph_->edges.erase(it);
+          removed = true;
+        } else {
+          ++it;
+        }
+      } else {
+        it = graph_->edges.erase(it);
+        removed = true;
+      }
+    } else {
+      ++it;
+    }
+  }
+
+  if (removed) {
+    if (sync) {
+      ros2_knowledge_graph_msgs::msg::GraphUpdate update_msg;
+      update_msg.stamp = node_->now();
+      update_msg.node_id = graph_id_;
+      update_msg.operation_type = ros2_knowledge_graph_msgs::msg::GraphUpdate::REMOVE;
+      update_msg.element_type = ros2_knowledge_graph_msgs::msg::GraphUpdate::EDGE;
+      update_msg.edge = edge;
+      update_pub_->publish(update_msg);
+    }
+
+    last_ts_ = node_->now();
+  }
+
+  return removed;
+}
+
+std::vector<ros2_knowledge_graph_msgs::msg::Edge>
+GraphNode::get_edges(
+  const std::string & source, const std::string & target, uint8_t type)
+{
+  std::vector<ros2_knowledge_graph_msgs::msg::Edge> ret;
+
+  for (auto & edge : graph_->edges) {
+    if (edge.source_node_id == source &&
+      edge.target_node_id == target &&
+      edge.content.type == type)
+    {
+      if (type == ros2_knowledge_graph_msgs::msg::Content::TF ||
+        type == ros2_knowledge_graph_msgs::msg::Content::STATICTF)
+      {
+        update_tf_edge(edge);
+      }
+      ret.push_back(edge);
+    }
+  }
+
+  return ret;
+}
+
+size_t
+GraphNode::get_num_edges() const
+{
+  return graph_->edges.size();
+}
+
+size_t
+GraphNode::get_num_nodes() const
+{
+  return graph_->nodes.size();
 }
 
 void
-GraphNode::update_callback(const ros2_knowledge_graph_msgs::msg::GraphUpdate::SharedPtr msg)
+GraphNode::update_node(const ros2_knowledge_graph_msgs::msg::Node & node, bool sync)
 {
-  std::lock_guard<std::mutex> lock(mutex_);
+  bool found = false;
+  auto it = graph_->nodes.begin();
+  while (!found && it != graph_->nodes.end()) {
+    if (it->node_name == node.node_name) {
+      *it = node;
+      found = true;
+    }
+    ++it;
+  }
 
+  if (!found) {
+    graph_->nodes.push_back(node);
+  }
+
+  if (sync) {
+    ros2_knowledge_graph_msgs::msg::GraphUpdate update_msg;
+    update_msg.stamp = node_->now();
+    update_msg.node_id = graph_id_;
+    update_msg.operation_type = ros2_knowledge_graph_msgs::msg::GraphUpdate::UPDATE;
+    update_msg.element_type = ros2_knowledge_graph_msgs::msg::GraphUpdate::NODE;
+    update_msg.node = node;
+    update_pub_->publish(update_msg);
+  }
+
+  last_ts_ = node_->now();
+}
+
+bool
+GraphNode::update_edge(const ros2_knowledge_graph_msgs::msg::Edge & edge, bool sync)
+{
+  if (!exist_node(edge.source_node_id)) {
+    RCLCPP_ERROR_STREAM(
+      node_->get_logger(),
+      "Node source [" << edge.source_node_id << "] doesn't exist adding edge");
+    return false;
+  }
+
+  if (!exist_node(edge.target_node_id)) {
+    RCLCPP_ERROR_STREAM(
+      node_->get_logger(),
+      "Node target [" << edge.target_node_id << "] doesn't exist adding edge");
+    return false;
+  }
+
+  bool found = false;
+  auto it = graph_->edges.begin();
+  while (!found && it != graph_->edges.end()) {
+    if (it->source_node_id == edge.source_node_id &&
+      it->target_node_id == edge.target_node_id &&
+      it->content.type == edge.content.type && (
+        it->content.type != ros2_knowledge_graph_msgs::msg::Content::STRING ||
+        (it->content.type == ros2_knowledge_graph_msgs::msg::Content::STRING &&
+        it->content.string_value == edge.content.string_value)))
+    {
+      *it = edge;
+      found = true;
+    }
+    ++it;
+  }
+
+  ros2_knowledge_graph_msgs::msg::Edge mod_edge = edge;
+  if (!found) {
+    if (mod_edge.content.type == ros2_knowledge_graph_msgs::msg::Content::STATICTF ||
+      mod_edge.content.type == ros2_knowledge_graph_msgs::msg::Content::TF)
+    {
+      mod_edge.content.tf_value.header.frame_id = edge.source_node_id;
+      mod_edge.content.tf_value.child_frame_id = edge.target_node_id;
+      publish_tf(mod_edge.content);
+    }
+    graph_->edges.push_back(mod_edge);
+
+    if (sync) {
+      ros2_knowledge_graph_msgs::msg::GraphUpdate update_msg;
+      update_msg.stamp = node_->now();
+      update_msg.node_id = graph_id_;
+      update_msg.operation_type = ros2_knowledge_graph_msgs::msg::GraphUpdate::UPDATE;
+      update_msg.element_type = ros2_knowledge_graph_msgs::msg::GraphUpdate::EDGE;
+      update_msg.edge = mod_edge;
+      update_pub_->publish(update_msg);
+    }
+
+    last_ts_ = node_->now();
+  } else {
+    if (mod_edge.content.type != ros2_knowledge_graph_msgs::msg::Content::STATICTF &&
+      mod_edge.content.type != ros2_knowledge_graph_msgs::msg::Content::TF)
+    {
+      if (sync) {
+        ros2_knowledge_graph_msgs::msg::GraphUpdate update_msg;
+        update_msg.stamp = node_->now();
+        update_msg.node_id = graph_id_;
+        update_msg.operation_type = ros2_knowledge_graph_msgs::msg::GraphUpdate::UPDATE;
+        update_msg.element_type = ros2_knowledge_graph_msgs::msg::GraphUpdate::EDGE;
+        update_msg.edge = mod_edge;
+        update_pub_->publish(update_msg);
+      }
+
+      last_ts_ = node_->now();
+    } else {
+      mod_edge.content.tf_value.header.frame_id = edge.source_node_id;
+      mod_edge.content.tf_value.child_frame_id = edge.target_node_id;
+      publish_tf(mod_edge.content);
+    }
+  }
+
+  return true;
+}
+
+void
+GraphNode::update_callback(ros2_knowledge_graph_msgs::msg::GraphUpdate::UniquePtr msg)
+{
   const auto & author_id = msg->node_id;
   const auto & element = msg->element_type;
   const auto & operation = msg->operation_type;
-  const auto & object_data = msg->object;
   const auto & ts = msg->stamp;
 
-  if (author_id == node_->get_name()) {
+  if (author_id == graph_id_) {
     return;
   }
 
@@ -123,40 +339,28 @@ GraphNode::update_callback(const ros2_knowledge_graph_msgs::msg::GraphUpdate::Sh
     operation != ros2_knowledge_graph_msgs::msg::GraphUpdate::SYNC)
   {
     RCLCPP_ERROR(
-      node_->get_logger(), "UNORDERER UPDATE [%zd] %lf > %lf in [%s]",
+      node_->get_logger(), "UNORDERER UPDATE [%zd] %lf > %lf",
       operation,
-      last_ts_.seconds(), rclcpp::Time(ts).seconds(), msg->object.c_str());
+      last_ts_.seconds(), rclcpp::Time(ts).seconds());
   }
 
   switch (element) {
     case ros2_knowledge_graph_msgs::msg::GraphUpdate::NODE:
       {
-        if (author_id == node_->get_name()) {
+        if (author_id == graph_id_) {
           return;
         }
 
         switch (operation) {
-          case ros2_knowledge_graph_msgs::msg::GraphUpdate::ADD:
+          case ros2_knowledge_graph_msgs::msg::GraphUpdate::UPDATE:
             {
-              Node node;
-              node.from_string(object_data);
-              graph_.add_node(node);
-              RCLCPP_DEBUG(
-                node_->get_logger(), "[%lf]\t(%s)\tADD NODE %s",
-                rclcpp::Time(ts).seconds(),
-                msg->node_id.c_str(), object_data.c_str());
+              update_node(msg->node, false);
               break;
             }
 
           case ros2_knowledge_graph_msgs::msg::GraphUpdate::REMOVE:
             {
-              Node node;
-              node.from_string(object_data);
-              graph_.remove_node(node.name);
-              RCLCPP_DEBUG(
-                node_->get_logger(), "[%lf]\t(%s)\tREMOVE NODE %s",
-                rclcpp::Time(ts).seconds(),
-                msg->node_id.c_str(), object_data.c_str());
+              remove_node(msg->removed_node, false);
               break;
             }
         }
@@ -165,29 +369,17 @@ GraphNode::update_callback(const ros2_knowledge_graph_msgs::msg::GraphUpdate::Sh
 
     case ros2_knowledge_graph_msgs::msg::GraphUpdate::EDGE:
       {
-        if (author_id == node_->get_name()) {
+        if (author_id == graph_id_) {
           return;
         }
 
-        Edge edge;
-        edge.from_string(object_data);
-
         switch (operation) {
-          case ros2_knowledge_graph_msgs::msg::GraphUpdate::ADD:
-            graph_.add_edge(edge);
-
-            RCLCPP_DEBUG(
-              node_->get_logger(), "[%lf]\t(%s)\tADD EDGE %s",
-              rclcpp::Time(ts).seconds(),
-              msg->node_id.c_str(), object_data.c_str());
+          case ros2_knowledge_graph_msgs::msg::GraphUpdate::UPDATE:
+            update_edge(msg->edge, false);
             break;
 
           case ros2_knowledge_graph_msgs::msg::GraphUpdate::REMOVE:
-            graph_.remove_edge(edge);
-            RCLCPP_DEBUG(
-              node_->get_logger(), "[%lf]\t(%s)\tREMOVE NODE %s",
-              rclcpp::Time(ts).seconds(),
-              msg->node_id.c_str(), object_data.c_str());
+            remove_edge(msg->edge, false);
             break;
         }
       }
@@ -197,32 +389,23 @@ GraphNode::update_callback(const ros2_knowledge_graph_msgs::msg::GraphUpdate::Sh
       {
         switch (operation) {
           case ros2_knowledge_graph_msgs::msg::GraphUpdate::SYNC:
-            RCLCPP_DEBUG(
-              node_->get_logger(), "[%lf]\t(%s)\tSYNC %s",
-              rclcpp::Time(ts).seconds(),
-              msg->node_id.c_str(), object_data.c_str());
 
-            if (msg->target_node == node_->get_name()) {
-              graph_.from_string(object_data);
+            if (msg->target_node == graph_id_) {
+              *graph_ = msg->graph;
               last_ts_ = ts;
             }
             break;
 
           case ros2_knowledge_graph_msgs::msg::GraphUpdate::REQSYNC:
 
-            RCLCPP_DEBUG(
-              node_->get_logger(), "[%lf]\t(%s)\tREQSYNC %s",
-              rclcpp::Time(ts).seconds(),
-              msg->node_id.c_str(), object_data.c_str());
-
             if (msg->node_id != node_->get_name()) {
               ros2_knowledge_graph_msgs::msg::GraphUpdate out_msg;
               out_msg.stamp = node_->now();
-              out_msg.node_id = node_->get_name();
+              out_msg.node_id = graph_id_;
               out_msg.target_node = msg->node_id;
               out_msg.operation_type = ros2_knowledge_graph_msgs::msg::GraphUpdate::SYNC;
               out_msg.element_type = ros2_knowledge_graph_msgs::msg::GraphUpdate::GRAPH;
-              out_msg.object = graph_.to_string();
+              out_msg.graph = *graph_;
               update_pub_->publish(out_msg);
             }
             break;
@@ -232,273 +415,38 @@ GraphNode::update_callback(const ros2_knowledge_graph_msgs::msg::GraphUpdate::Sh
   }
 }
 
-
-bool
-GraphNode::add_node(const Node & node)
+void
+GraphNode::publish_tf(const ros2_knowledge_graph_msgs::msg::Content & content)
 {
-  std::lock_guard<std::mutex> lock(mutex_);
-
-  Node modificable_node = node;
-
-  for (const auto & layer_id : layer_ids_) {
-    layers_[layer_id]->on_add_node(modificable_node);
-  }
-
-  if (graph_.can_add_node(modificable_node)) {
-    graph_.add_node(modificable_node);
-    last_ts_ = node_->now();
-
-    ros2_knowledge_graph_msgs::msg::GraphUpdate msg;
-    msg.stamp = last_ts_;
-    msg.node_id = node_->get_name();
-    msg.operation_type = ros2_knowledge_graph_msgs::msg::GraphUpdate::ADD;
-    msg.element_type = ros2_knowledge_graph_msgs::msg::GraphUpdate::NODE;
-    msg.object = modificable_node.to_string();
-
-    update_pub_->publish(msg);
-
-    return true;
+  if (content.type == ros2_knowledge_graph_msgs::msg::Content::TF) {
+    tf_broadcaster_.sendTransform(content.tf_value);
+  } else if (content.type == ros2_knowledge_graph_msgs::msg::Content::STATICTF) {
+    static_tf_broadcaster_.sendTransform(content.tf_value);
   } else {
-    RCLCPP_ERROR(
-      node_->get_logger(), "NCB unable to add Node [%s]",
-      modificable_node.to_string().c_str());
-
-    return false;
+    RCLCPP_ERROR(node_->get_logger(), "Trying to publish tf with a non-tf edge");
   }
 }
-
-bool
-GraphNode::remove_node(const std::string node)
-{
-  std::lock_guard<std::mutex> lock(mutex_);
-
-  for (const auto & layer_id : layer_ids_) {
-    layers_[layer_id]->on_remove_node(node);
-  }
-
-  if (graph_.can_remove_node(node)) {
-    graph_.remove_node(node);
-    last_ts_ = node_->now();
-
-    ros2_knowledge_graph_msgs::msg::GraphUpdate msg;
-    msg.stamp = last_ts_;
-    msg.node_id = node_->get_name();
-    msg.operation_type = ros2_knowledge_graph_msgs::msg::GraphUpdate::REMOVE;
-    msg.element_type = ros2_knowledge_graph_msgs::msg::GraphUpdate::NODE;
-    msg.object = Node{node, ""}.to_string();
-
-    update_pub_->publish(msg);
-
-    return true;
-  } else {
-    RCLCPP_ERROR(
-      node_->get_logger(), "NCB Unable to remove Node [%s]",
-      Node{node, ""}.to_string().c_str());
-
-    return false;
-  }
-}
-
-bool
-GraphNode::exist_node(const std::string node)
-{
-  std::lock_guard<std::mutex> lock(mutex_);
-  return graph_.exist_node(node);
-}
-
-boost::optional<Node &>
-GraphNode::get_node(const std::string node)
-{
-  std::lock_guard<std::mutex> lock(mutex_);
-
-  auto opt_node = graph_.get_node(node);
-
-  if (opt_node.has_value()) {
-    for (const auto & layer_id : layer_ids_) {
-      layers_[layer_id]->on_get_node(opt_node.value());
-    }
-    return opt_node;
-  } else {
-    return {};
-  }
-}
-
-bool
-GraphNode::add_edge(const Edge & edge)
-{
-  Edge modificable_edge = edge;
-
-  for (const auto & layer_id : layer_ids_) {
-    layers_[layer_id]->on_add_edge(modificable_edge);
-  }
-
-  std::lock_guard<std::mutex> lock(mutex_);
-
-  if (graph_.can_add_edge(modificable_edge) && !graph_.exist_edge(modificable_edge)) {
-    graph_.add_edge(modificable_edge);
-    last_ts_ = node_->now();
-
-    ros2_knowledge_graph_msgs::msg::GraphUpdate msg;
-    msg.stamp = last_ts_;
-    msg.node_id = node_->get_name();
-    msg.operation_type = ros2_knowledge_graph_msgs::msg::GraphUpdate::ADD;
-    msg.element_type = ros2_knowledge_graph_msgs::msg::GraphUpdate::EDGE;
-    msg.object = modificable_edge.to_string();
-    update_pub_->publish(msg);
-    return true;
-  } else if (!graph_.can_add_edge(modificable_edge)) {
-    RCLCPP_ERROR(
-      node_->get_logger(), "Unable to add Edge [%s]",
-      modificable_edge.to_string().c_str());
-
-    return false;
-  } else {
-    return true;
-  }
-}
-
-bool
-GraphNode::remove_edge(const Edge & edge)
-{
-  std::lock_guard<std::mutex> lock(mutex_);
-
-  Edge modificable_edge = edge;
-
-  for (const auto & layer_id : layer_ids_) {
-    layers_[layer_id]->on_remove_edge(modificable_edge);
-  }
-
-  if (graph_.can_remove_edge(modificable_edge)) {
-    graph_.remove_edge(modificable_edge);
-    last_ts_ = node_->now();
-
-    ros2_knowledge_graph_msgs::msg::GraphUpdate msg;
-    msg.stamp = last_ts_;
-    msg.node_id = node_->get_name();
-    msg.operation_type = ros2_knowledge_graph_msgs::msg::GraphUpdate::REMOVE;
-    msg.element_type = ros2_knowledge_graph_msgs::msg::GraphUpdate::EDGE;
-    msg.object = modificable_edge.to_string();
-
-    update_pub_->publish(msg);
-    return true;
-  } else {
-    RCLCPP_ERROR(
-      node_->get_logger(), "Unable to remove Edge [%s]",
-      modificable_edge.to_string().c_str());
-
-    return false;
-  }
-}
-
-bool
-GraphNode::exist_edge(const Edge & edge)
-{
-  std::lock_guard<std::mutex> lock(mutex_);
-  return graph_.exist_edge(edge);
-}
-
 
 void
-GraphNode::get_edges(
-  const std::string & source, const std::string & target,
-  const std::string & type, std::vector<Edge> & result)
+GraphNode::update_tf_edges()
 {
-  std::lock_guard<std::mutex> lock(mutex_);
-
-  auto opt_edges = graph_.get_edges(source, target);
-
-  std::vector<Edge> edges;
-  if (opt_edges.has_value()) {
-    for (auto & edge : *opt_edges.value()) {
-      Edge modificable_edge = edge;
-
-      for (const auto & layer_id : layer_ids_) {
-        layers_[layer_id]->on_get_edge(modificable_edge);
-      }
-      result.push_back(modificable_edge);
+  for (auto & edge : graph_->edges) {
+    if (edge.content.type == ros2_knowledge_graph_msgs::msg::Content::TF ||
+      edge.content.type == ros2_knowledge_graph_msgs::msg::Content::STATICTF)
+    {
+      update_tf_edge(edge);
     }
   }
 }
 
-std::string
-GraphNode::to_string() const
-{
-  std::lock_guard<std::mutex> lock(mutex_);
-  return graph_.to_string();
-}
-
 void
-GraphNode::from_string(const std::string & graph_str)
+GraphNode::update_tf_edge(ros2_knowledge_graph_msgs::msg::Edge & edge)
 {
-  std::lock_guard<std::mutex> lock(mutex_);
-  graph_.from_string(graph_str);
-}
-
-size_t
-GraphNode::get_num_edges() const
-{
-  std::lock_guard<std::mutex> lock(mutex_);
-  return graph_.get_num_edges();
-}
-
-size_t
-GraphNode::get_num_nodes() const
-{
-  std::lock_guard<std::mutex> lock(mutex_);
-  return graph_.get_num_nodes();
-}
-
-
-const std::map<std::string, Node> &
-GraphNode::get_nodes()
-{
-  std::lock_guard<std::mutex> lock(mutex_);
-  return graph_.get_nodes();
-}
-
-const std::map<ConnectionT, std::vector<Edge>> &
-GraphNode::get_edges()
-{
-  std::lock_guard<std::mutex> lock(mutex_);
-  return graph_.get_edges();
-}
-
-std::vector<std::string>
-GraphNode::get_node_names_by_id(const std::string & expr)
-{
-  std::lock_guard<std::mutex> lock(mutex_);
-  return graph_.get_node_names_by_id(expr);
-}
-
-std::vector<std::string>
-GraphNode::get_node_names_by_type(const std::string & type)
-{
-  std::lock_guard<std::mutex> lock(mutex_);
-  return graph_.get_node_names_by_type(type);
-}
-
-std::vector<Edge>
-GraphNode::get_edges_from_node(const std::string & node_src_id, const std::string & type)
-{
-  std::lock_guard<std::mutex> lock(mutex_);
-  return graph_.get_edges_from_node(node_src_id, type);
-}
-
-std::vector<Edge>
-GraphNode::get_edges_from_node_by_data(
-  const std::string & node_src_id,
-  const std::string & expr,
-  const std::string & type)
-{
-  std::lock_guard<std::mutex> lock(mutex_);
-  return graph_.get_edges_from_node_by_data(node_src_id, expr, type);
-}
-
-std::vector<Edge>
-GraphNode::get_edges_by_data(const std::string & expr, const std::string & type)
-{
-  std::lock_guard<std::mutex> lock(mutex_);
-  return graph_.get_edges_by_data(expr, type);
+  try {
+    edge.content.tf_value = buffer_.lookupTransform(
+      edge.source_node_id, edge.target_node_id, tf2::TimePointZero);
+  } catch (tf2::LookupException e) {
+  }
 }
 
 }  // namespace ros2_knowledge_graph

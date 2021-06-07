@@ -1,4 +1,4 @@
-// Copyright 2019 Intelligent Robotics Lab
+// Copyright 2021 Intelligent Robotics Lab
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,100 +12,168 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+
 #ifndef ROS2_KNOWLEDGE_GRAPH__GRAPHNODE_HPP_
 #define ROS2_KNOWLEDGE_GRAPH__GRAPHNODE_HPP_
 
-#include <boost/optional.hpp>
+#include <tf2_ros/transform_listener.h>
+#include <tf2_ros/transform_broadcaster.h>
+#include <tf2_ros/static_transform_broadcaster.h>
 
-#include <vector>
-#include <map>
+#include <optional>
 #include <string>
+#include <vector>
 #include <memory>
-#include <utility>
-#include <mutex>
-#include <unordered_map>
-
-#include "ros2_knowledge_graph/Graph.hpp"
-#include "ros2_knowledge_graph/Layer.hpp"
 
 #include "ros2_knowledge_graph_msgs/msg/graph_update.hpp"
+#include "ros2_knowledge_graph_msgs/msg/graph.hpp"
+#include "ros2_knowledge_graph_msgs/msg/node.hpp"
+#include "ros2_knowledge_graph_msgs/msg/edge.hpp"
 
 #include "rclcpp/rclcpp.hpp"
-#include "pluginlib/class_loader.hpp"
-#include "pluginlib/class_list_macros.hpp"
 
 namespace ros2_knowledge_graph
 {
 
-using ConnectionT = std::pair<std::string, std::string>;
-
 class GraphNode
 {
 public:
-  using LayerMap = std::unordered_map<std::string, ros2_knowledge_graph::Layer::Ptr>;
+  explicit GraphNode(rclcpp::Node::SharedPtr provided_node);
 
-  explicit GraphNode(const std::string & provided_node_name);
-
-  void start();
-  bool is_started() {return started_;}
-
-  bool add_node(const Node & node);
-  bool remove_node(const std::string node);
+  bool remove_node(const std::string node, bool sync = true);
   bool exist_node(const std::string node);
-  boost::optional<Node &> get_node(const std::string node);
+  std::optional<ros2_knowledge_graph_msgs::msg::Node> get_node(const std::string node);
 
-  bool add_edge(const Edge & edge);
+  bool remove_edge(const ros2_knowledge_graph_msgs::msg::Edge & edge, bool sync = true);
+  std::vector<ros2_knowledge_graph_msgs::msg::Edge> get_edges(
+    const std::string & source, const std::string & target, uint8_t type);
 
-  bool remove_edge(const Edge & edge);
-  bool exist_edge(const Edge & edge);
-  void get_edges(
-    const std::string & source, const std::string & target, const std::string & type,
-    std::vector<Edge> & result);
+  template<class T>
+  std::vector<ros2_knowledge_graph_msgs::msg::Edge> get_edges(
+    const std::string & source, const std::string & target)
+  {
+    return {};
+  }
 
-  const std::map<std::string, Node> & get_nodes();
-  const std::map<ConnectionT, std::vector<Edge>> & get_edges();
-
-  std::string to_string() const;
-  void from_string(const std::string & graph_str);
+  const std::vector<ros2_knowledge_graph_msgs::msg::Node> & get_nodes() {return graph_->nodes;}
+  const std::vector<ros2_knowledge_graph_msgs::msg::Edge> & get_edges()
+  {
+    update_tf_edges();
+    return graph_->edges;
+  }
+  const std::vector<std::string> get_node_names();
 
   size_t get_num_edges() const;
   size_t get_num_nodes() const;
 
-  std::vector<std::string> get_node_names_by_id(const std::string & expr);
-  std::vector<std::string> get_node_names_by_type(const std::string & type);
-  std::vector<Edge> get_edges_from_node(
-    const std::string & node_src_id,
-    const std::string & type = "");
-  std::vector<Edge> get_edges_from_node_by_data(
-    const std::string & node_src_id,
-    const std::string & expr,
-    const std::string & type = "");
-  std::vector<Edge> get_edges_by_data(const std::string & expr, const std::string & type = "");
+  void update_node(const ros2_knowledge_graph_msgs::msg::Node & node, bool sync = true);
+  bool update_edge(const ros2_knowledge_graph_msgs::msg::Edge & edge, bool sync = true);
 
 protected:
   rclcpp::Node::SharedPtr node_;
+  ros2_knowledge_graph_msgs::msg::Graph::UniquePtr graph_;
+  std::string graph_id_;
+  rclcpp::Time last_ts_;
+
+  void publish_tf(const ros2_knowledge_graph_msgs::msg::Content & content);
+  void update_tf_edges();
+  void update_tf_edge(ros2_knowledge_graph_msgs::msg::Edge & edge);
+  void update_callback(ros2_knowledge_graph_msgs::msg::GraphUpdate::UniquePtr msg);
 
 private:
-  bool started_;
-
-  std::string node_name_;
-
-  Graph graph_;
-
   rclcpp::Publisher<ros2_knowledge_graph_msgs::msg::GraphUpdate>::SharedPtr update_pub_;
   rclcpp::Subscription<ros2_knowledge_graph_msgs::msg::GraphUpdate>::SharedPtr update_sub_;
 
-  void update_callback(const ros2_knowledge_graph_msgs::msg::GraphUpdate::SharedPtr msg);
-  mutable std::mutex mutex_;
+  tf2::BufferCore buffer_;
+  tf2_ros::TransformListener tf_listener_;
+  tf2_ros::TransformBroadcaster tf_broadcaster_;
+  tf2_ros::StaticTransformBroadcaster static_tf_broadcaster_;
 
-  std::thread sync_spin_t_;
-  rclcpp::Time last_ts_;
-
-  pluginlib::ClassLoader<ros2_knowledge_graph::Layer> lp_loader_;
-  LayerMap layers_;
-  std::vector<std::string> layer_ids_, layer_types_;
-  std::string layer_ids_concat_, current_layer_;
+  friend class GraphFactory;
 };
+
+class GraphFactory
+{
+public:
+  static GraphNode * getInstance(rclcpp::Node::SharedPtr provided_node)
+  {
+    if (instance_ == nullptr) {
+      instance_ = new GraphNode(std::shared_ptr<rclcpp::Node>(provided_node));
+    } else if (provided_node != instance_->node_) {
+      RCLCPP_WARN(
+        provided_node->get_logger(), "Using already existing node [%s]",
+        instance_->node_->get_name());
+    }
+    return instance_;
+  }
+
+private:
+  static GraphNode * instance_;
+};
+
+GraphNode * GraphFactory::instance_ = nullptr;
+
+template<>
+std::vector<ros2_knowledge_graph_msgs::msg::Edge>
+GraphNode::get_edges<bool>(
+  const std::string & source, const std::string & target)
+{
+  return get_edges(source, target, ros2_knowledge_graph_msgs::msg::Content::BOOL);
+}
+
+template<>
+std::vector<ros2_knowledge_graph_msgs::msg::Edge>
+GraphNode::get_edges<int>(
+  const std::string & source, const std::string & target)
+{
+  return get_edges(source, target, ros2_knowledge_graph_msgs::msg::Content::INT);
+}
+
+template<>
+std::vector<ros2_knowledge_graph_msgs::msg::Edge>
+GraphNode::get_edges<float>(
+  const std::string & source, const std::string & target)
+{
+  return get_edges(source, target, ros2_knowledge_graph_msgs::msg::Content::FLOAT);
+}
+
+template<>
+std::vector<ros2_knowledge_graph_msgs::msg::Edge>
+GraphNode::get_edges<double>(
+  const std::string & source, const std::string & target)
+{
+  return get_edges(source, target, ros2_knowledge_graph_msgs::msg::Content::DOUBLE);
+}
+
+template<>
+std::vector<ros2_knowledge_graph_msgs::msg::Edge>
+GraphNode::get_edges<std::string>(
+  const std::string & source, const std::string & target)
+{
+  return get_edges(source, target, ros2_knowledge_graph_msgs::msg::Content::STRING);
+}
+
+template<>
+std::vector<ros2_knowledge_graph_msgs::msg::Edge>
+GraphNode::get_edges<geometry_msgs::msg::PoseStamped>(
+  const std::string & source, const std::string & target)
+{
+  return get_edges(source, target, ros2_knowledge_graph_msgs::msg::Content::POSE);
+}
+
+template<>
+std::vector<ros2_knowledge_graph_msgs::msg::Edge>
+GraphNode::get_edges<geometry_msgs::msg::TransformStamped>(
+  const std::string & source, const std::string & target)
+{
+  auto tf_result = get_edges(source, target, ros2_knowledge_graph_msgs::msg::Content::TF);
+  auto tfs_result = get_edges(source, target, ros2_knowledge_graph_msgs::msg::Content::STATICTF);
+
+  tf_result.insert(tf_result.begin(), tfs_result.begin(), tfs_result.end());
+
+  return tf_result;
+}
+
 
 }  // namespace ros2_knowledge_graph
 

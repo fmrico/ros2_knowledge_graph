@@ -40,7 +40,7 @@ import rclpy
 import tf2_py
 import tf2_ros
 
-from rclpy.node import Node
+import rclpy.node
 from rclpy.qos import InvalidQoSProfileException
 from rclpy.qos import qos_profile_system_default
 from rclpy.qos import QoSDurabilityPolicy
@@ -50,42 +50,17 @@ from rclpy.qos import QoSPresetProfiles
 from rclpy.qos import QoSProfile
 from rclpy.qos import QoSReliabilityPolicy
 
-from ros2_knowledge_graph_msgs.msg import GraphUpdate
+from ros2_knowledge_graph_msgs.msg import GraphUpdate, Graph, Node, Edge, Content, Property
 from builtin_interfaces.msg import Time
 
-class GraphNode:
-    def __init__(self, node_str):
-        self.name = node_str.split('::')[1]
-        self.type = node_str.split('::')[2]
-
-    def __eq__(self, o):
-        return self.name == o.name  # and self.type == o.type
-
-    def __repr__(self):
-        return 'node::' + self.name + "::" + self.type
-
-class GraphEdge:
-    def __init__(self, node_str):
-        connection = node_str.split('::')[1]
-        self.source = connection.split('->')[0]
-        self.target = connection.split('->')[1]
-        self.content = node_str.split('::')[2]
-        self.type = node_str.split('::')[3]
-
-    def __eq__(self, o):
-        return self.source == o.source and self.target == o.target and self.type == o.type and self.content == o.content
-
-    def __repr__(self):
-        return 'edge::' + self.source + '->' + self.target + '::' + self.content + '::' + self.type
-
-class Ros2KnowledgeGraphImpl(Node):
+class Ros2KnowledgeGraphImpl(rclpy.node.Node):
 
     def __init__(self):
         super().__init__('rqt_ros2_knowledge_graph')
 
         self.update_sub = self.create_subscription(
             GraphUpdate,
-            '/graph_updates',
+            '/graph_update',
             self.graph_update_callback,
             qos_profile=QoSProfile(
                 history=QoSHistoryPolicy.RMW_QOS_POLICY_HISTORY_KEEP_LAST,
@@ -94,85 +69,101 @@ class Ros2KnowledgeGraphImpl(Node):
             )
 
         self.graph_pub = self.create_publisher(GraphUpdate,
-            '/graph_updates',
+            '/graph_update',
             qos_profile=QoSProfile(
                 history=QoSHistoryPolicy.RMW_QOS_POLICY_HISTORY_KEEP_LAST,
                 depth=100,
                 reliability=QoSReliabilityPolicy.RMW_QOS_POLICY_RELIABILITY_RELIABLE)
             )
 
-        
+        self.graph = Graph()
+        self.graph_id = self.get_name() + str(self.get_clock().now().nanoseconds);
+
         msg = GraphUpdate()
-        msg.operation_type = 3  # msg.REQSYNC
-        msg.element_type = 2  # msg.GRAPH
+        msg.operation_type = GraphUpdate.REQSYNC
+        msg.element_type = GraphUpdate.GRAPH
         print(self.get_clock().now().seconds_nanoseconds())
         msg.stamp.sec = self.get_clock().now().seconds_nanoseconds()[0]
         msg.stamp.nanosec = self.get_clock().now().seconds_nanoseconds()[1]
-       
-        msg.node_id = self.get_name()
+        msg.node_id = self.graph_id
+
+        print("Sending graph")
         self.graph_pub.publish(msg)
 
-        self.nodes = []
-        self.edges = []
-
     def __repr__(self):
-        ret = "Nodes: " + str(len(self.nodes)) + '\n'
-        for i in self.nodes:
+        ret = "Nodes: " + str(len(self.graph.nodes)) + '\n'
+        for i in self.graph.nodes:
             ret = ret + str(i) + '\n'
-        ret = ret + "Edges: " + str(len(self.edges)) + '\n'
-        for i in self.edges:
+        ret = ret + "Edges: " + str(len(self.graph.edges)) + '\n'
+        for i in self.graph.edges:
             ret = ret + str(i) + '\n'
         return ret
 
-    def init_graph(self, msg):
-        self.nodes = []
-        self.edges = []
-        for element in msg.object.splitlines():
-            if element[0:4] == "node":
-                self.nodes.append(GraphNode(element))
-            if element[0:4] == "edge":
-                self.edges.append(GraphEdge(element))
+    def init_graph(self, recv_graph):
+        self.graph = recv_graph
 
-    def add_node(self, msg):
-        self.nodes.append(GraphNode(msg.object))
+    def update_node(self, recv_node):
+        found = False
+        for node in self.graph.nodes:
+          if node.node_name == recv_node.node_name:
+            node = recv_node
+            found = True
+            break
+        
+        if not found:
+          self.graph.nodes.append(recv_node)
 
-    def remove_node(self, msg):
-        node_to_remove = GraphNode(msg.object)
-        self.nodes.remove(node_to_remove)
+    def remove_node(self, node_to_remove):
+        self.graph.nodes = [x for x in self.graph.nodes if x.node_name != node_to_remove]
 
-        new_edges = [x for x in self.edges if x.source != node_to_remove.name and x.target != node_to_remove.name]
-        self.edges = new_edges
+        new_edges = [x for x in self.graph.edges if x.source_node_id != node_to_remove and x.target_node_id != node_to_remove]
+        self.graph.edges = new_edges
 
-    def add_edge(self, msg):
-        self.edges.append(GraphEdge(msg.object))
+    def exist_node(self, node_name):
+      for node in self.graph.nodes:
+          if node.node_name == node_name:
+            return True
+      return False
 
-    def remove_edge(self, msg):
-        edge_to_remove = GraphEdge(msg.object)
-        self.edges.remove(edge_to_remove)
+    def update_edge(self, recv_edge):
+        if not self.exist_node(recv_edge.source_node_id):
+          return
+        if not self.exist_node(recv_edge.target_node_id):
+          return
+
+        found = False
+        for edge in self.graph.edges:
+          if edge == recv_edge:
+            edge = recv_edge
+            found = True
+            break
+
+        if not found:
+          self.graph.edges.append(recv_edge)
+
+    def remove_edge(self, recv_edge):
+        self.graph.edges.remove(recv_edge)
         
     def graph_update_callback(self, msg):
         self.get_logger().info('I heard: a new graph or update')
 
-        # ADD NODE
-        if msg.operation_type == 0 and msg.element_type == 0:
-            # print("add node " + msg.object)
-            self.add_node(msg)
 
-        # ADD EDGE
+        # UPDATE NODE
+        if msg.operation_type == 0 and msg.element_type == 0:
+            self.update_node(msg.node)
+
+        # UPDATE EDGE
         if msg.operation_type == 0 and msg.element_type == 1:
-            # print("add edge " + msg.object)
-            self.add_edge(msg)
+            self.update_edge(msg.edge)
 
         # REMOVE NODE
         if msg.operation_type == 1 and msg.element_type == 0:
-            # print("remove node " + msg.object)
-            self.remove_node(msg)
+            self.remove_node(msg.removed_node)
 
         # REMOVE EDGE
         if msg.operation_type == 1 and msg.element_type == 1:
-            # print("remove edge " + msg.object)
-            self.remove_edge(msg)
+            self.remove_edge(msg.edge)
 
         # SYNC
-        if msg.operation_type == 2 and msg.target_node == self.get_name():
-            self.init_graph(msg)
+        if msg.operation_type == 2 and msg.target_node == self.graph_id:
+            self.init_graph(msg.graph)
