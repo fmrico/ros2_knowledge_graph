@@ -20,6 +20,7 @@
 #include <string>
 #include <vector>
 #include <memory>
+#include <regex>
 
 #include "ros2_knowledge_graph_msgs/msg/graph.hpp"
 #include "ros2_knowledge_graph_msgs/msg/node.hpp"
@@ -447,6 +448,25 @@ GraphNode::update_tf_edge(ros2_knowledge_graph_msgs::msg::Edge & edge)
       edge.source_node_id, edge.target_node_id, tf2::TimePointZero);
   } catch (tf2::LookupException e) {
   }
+}
+
+std::vector<ros2_knowledge_graph_msgs::msg::Edge>
+GraphNode::get_edges_from_node_by_data(
+  const std::string & source, const std::string & expr)
+{
+  std::vector<ros2_knowledge_graph_msgs::msg::Edge> ret;
+
+  for (auto & edge : graph_->edges) {
+    if ( (edge.source_node_id == source) &&
+      (edge.content.type == ros2_knowledge_graph_msgs::msg::Content::STRING) )
+    {
+      if (std::regex_match(edge.content.string_value, std::regex(expr)))
+        {
+          ret.push_back(edge);
+        }
+    }
+  }
+  return ret;
 }
 
 }  // namespace ros2_knowledge_graph

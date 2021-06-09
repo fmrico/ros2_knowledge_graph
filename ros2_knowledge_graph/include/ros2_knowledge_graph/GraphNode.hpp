@@ -55,6 +55,9 @@ public:
     return {};
   }
 
+  std::vector<ros2_knowledge_graph_msgs::msg::Edge> get_edges_from_node_by_data( 
+    const std::string &source, const std::string &expr);
+
   const std::vector<ros2_knowledge_graph_msgs::msg::Node> & get_nodes() {return graph_->nodes;}
   const std::vector<ros2_knowledge_graph_msgs::msg::Edge> & get_edges()
   {
