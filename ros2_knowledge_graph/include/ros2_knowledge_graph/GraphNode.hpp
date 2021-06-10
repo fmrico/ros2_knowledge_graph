@@ -98,7 +98,7 @@ public:
   static GraphNode * getInstance(rclcpp::Node::SharedPtr provided_node)
   {
     if (instance_ == nullptr) {
-      instance_ = new GraphNode(std::shared_ptr<rclcpp::Node>(provided_node));
+      instance_ = new GraphNode(provided_node);
     } else if (provided_node != instance_->node_) {
       RCLCPP_WARN(
         provided_node->get_logger(), "Using already existing node [%s]",
