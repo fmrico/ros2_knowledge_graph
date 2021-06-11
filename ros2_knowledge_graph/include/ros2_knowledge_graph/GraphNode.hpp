@@ -55,8 +55,8 @@ public:
     return {};
   }
 
-  std::vector<ros2_knowledge_graph_msgs::msg::Edge> get_edges_from_node_by_data( 
-    const std::string &source, const std::string &expr);
+  std::vector<ros2_knowledge_graph_msgs::msg::Edge> get_edges_from_node_by_data(
+    const std::string & source, const std::string & expr);
 
   const std::vector<ros2_knowledge_graph_msgs::msg::Node> & get_nodes() {return graph_->nodes;}
   const std::vector<ros2_knowledge_graph_msgs::msg::Edge> & get_edges()
@@ -82,10 +82,14 @@ protected:
   void update_tf_edges();
   void update_tf_edge(ros2_knowledge_graph_msgs::msg::Edge & edge);
   void update_callback(ros2_knowledge_graph_msgs::msg::GraphUpdate::UniquePtr msg);
+  void reqsync_timer_callback();
 
 private:
   rclcpp::Publisher<ros2_knowledge_graph_msgs::msg::GraphUpdate>::SharedPtr update_pub_;
   rclcpp::Subscription<ros2_knowledge_graph_msgs::msg::GraphUpdate>::SharedPtr update_sub_;
+
+  rclcpp::TimerBase::SharedPtr reqsync_timer_;
+  rclcpp::Time start_time_;
 
   tf2::BufferCore buffer_;
   tf2_ros::TransformListener tf_listener_;

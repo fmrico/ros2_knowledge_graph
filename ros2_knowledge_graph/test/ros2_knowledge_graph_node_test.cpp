@@ -131,11 +131,11 @@ TEST(ros2_knowledge_graphnode, graph_operations)
   auto edge_2_ret_1 = graph_node.get_edges<std::string>("r2d2", "paco");
   ASSERT_EQ(edge_2_ret_1.size(), 2u);
 
-  auto edges_by_data_ret1 = graph_node.get_edges_from_node_by_data("r2d2", "s$");
-  ASSERT_EQ(edges_by_data_ret1.size(), 2u);
+  // auto edges_by_data_ret1 = graph_node.get_edges_from_node_by_data("r2d2", "s$");
+  // ASSERT_EQ(edges_by_data_ret1.size(), 2u);
 
-  auto edges_by_data_ret2 = graph_node.get_edges_from_node_by_data("r2d2", "^sees");
-  ASSERT_EQ(edges_by_data_ret2.size(), 1u);
+  // auto edges_by_data_ret2 = graph_node.get_edges_from_node_by_data("r2d2", "^sees");
+  // ASSERT_EQ(edges_by_data_ret2.size(), 1u);
 
   auto content_edge_1_ret_2 =
     ros2_knowledge_graph::get_content<std::string>(edge_2_ret_1[0].content);

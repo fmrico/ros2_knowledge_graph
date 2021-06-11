@@ -475,7 +475,7 @@ TEST(graph_utils, string)
   node.properties.push_back(prop);
 
   ASSERT_EQ(
-    ros2_knowledge_graph::to_string(node), "r2d2 (robot)\nowner: [Anakin Skywalker]");
+    ros2_knowledge_graph::to_string(node), "r2d2 (robot)\n\towner: [Anakin Skywalker]");
 
   ros2_knowledge_graph_msgs::msg::Edge edge;
   edge.source_node_id = "r2d2";

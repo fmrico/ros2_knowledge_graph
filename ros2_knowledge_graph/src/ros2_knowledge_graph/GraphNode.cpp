@@ -33,6 +33,7 @@ namespace ros2_knowledge_graph
 {
 
 using std::placeholders::_1;
+using namespace std::chrono_literals;
 
 GraphNode::GraphNode(rclcpp::Node::SharedPtr provided_node)
 : node_(provided_node),
@@ -51,6 +52,20 @@ GraphNode::GraphNode(rclcpp::Node::SharedPtr provided_node)
     std::bind(&GraphNode::update_callback, this, _1));
 
   last_ts_ = node_->now();
+  start_time_ = node_->now();
+
+  reqsync_timer_ = node_->create_wall_timer(
+    100ms, std::bind(&GraphNode::reqsync_timer_callback, this));
+
+  reqsync_timer_callback();
+}
+
+void
+GraphNode::reqsync_timer_callback()
+{
+  if ((node_->now() - start_time_).seconds() > 1.0) {
+    reqsync_timer_ = nullptr;
+  }
 
   ros2_knowledge_graph_msgs::msg::GraphUpdate hello_msg;
   hello_msg.stamp = node_->now();
@@ -392,6 +407,8 @@ GraphNode::update_callback(ros2_knowledge_graph_msgs::msg::GraphUpdate::UniquePt
           case ros2_knowledge_graph_msgs::msg::GraphUpdate::SYNC:
 
             if (msg->target_node == graph_id_) {
+              reqsync_timer_ = nullptr;
+
               *graph_ = msg->graph;
               last_ts_ = ts;
             }
@@ -460,10 +477,9 @@ GraphNode::get_edges_from_node_by_data(
     if ( (edge.source_node_id == source) &&
       (edge.content.type == ros2_knowledge_graph_msgs::msg::Content::STRING) )
     {
-      if (std::regex_match(edge.content.string_value, std::regex(expr)))
-        {
-          ret.push_back(edge);
-        }
+      if (std::regex_match(edge.content.string_value, std::regex(expr))) {
+        ret.push_back(edge);
+      }
     }
   }
   return ret;
