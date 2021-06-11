@@ -500,13 +500,16 @@ Terminal::process_print(std::vector<std::string> & command, std::ostringstream &
   const auto & nodes = graph_->get_nodes();
 
   os << "Nodes: " << nodes.size() << std::endl;
+  os << "==============" << std::endl;
   for (const auto & node : nodes) {
     os << "\t" << ros2_knowledge_graph::to_string(node) << std::endl;
   }
 
   const auto & edges = graph_->get_edges();
 
+  os << std::endl;
   os << "Connections: " << edges.size() << std::endl;
+  os << "==============" << std::endl;
   for (const auto & edge : edges) {
     os << "\t" << ros2_knowledge_graph::to_string(edge) << std::endl;
   }

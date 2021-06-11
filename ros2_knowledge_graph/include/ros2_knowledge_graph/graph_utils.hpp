@@ -622,7 +622,7 @@ to_string(const ros2_knowledge_graph_msgs::msg::Node & node)
   ret = ret + node.node_name + " (" + node.node_class + ")";
 
   for (const auto & prop : node.properties) {
-    ret = ret + "\n" + prop.key + ": [" + to_string(prop.value) + "]";
+    ret = ret + "\n\t" + prop.key + ": [" + to_string(prop.value) + "]";
   }
 
   return ret;
