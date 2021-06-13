@@ -17,8 +17,6 @@
 #define ROS2_KNOWLEDGE_GRAPH__GRAPHNODE_HPP_
 
 #include <tf2_ros/transform_listener.h>
-#include <tf2_ros/transform_broadcaster.h>
-#include <tf2_ros/static_transform_broadcaster.h>
 
 #include <optional>
 #include <string>
@@ -31,6 +29,7 @@
 #include "ros2_knowledge_graph_msgs/msg/edge.hpp"
 
 #include "rclcpp/rclcpp.hpp"
+#include "rclcpp_lifecycle/lifecycle_node.hpp"
 
 namespace ros2_knowledge_graph
 {
@@ -39,6 +38,15 @@ class GraphNode
 {
 public:
   explicit GraphNode(rclcpp::Node::SharedPtr provided_node);
+  explicit GraphNode(rclcpp_lifecycle::LifecycleNode::SharedPtr provided_node);
+
+  GraphNode(
+    rclcpp::node_interfaces::NodeBaseInterface::SharedPtr node_base,
+    rclcpp::node_interfaces::NodeLoggingInterface::SharedPtr node_logging,
+    rclcpp::node_interfaces::NodeTimersInterface::SharedPtr node_timers,
+    rclcpp::node_interfaces::NodeTopicsInterface::SharedPtr node_topics,
+    rclcpp::node_interfaces::NodeClockInterface::SharedPtr node_clock);
+
 
   bool remove_node(const std::string node, bool sync = true);
   bool exist_node(const std::string node);
@@ -73,7 +81,12 @@ public:
   bool update_edge(const ros2_knowledge_graph_msgs::msg::Edge & edge, bool sync = true);
 
 protected:
-  rclcpp::Node::SharedPtr node_;
+  rclcpp::node_interfaces::NodeBaseInterface::SharedPtr node_base_;
+  rclcpp::node_interfaces::NodeLoggingInterface::SharedPtr node_logging_;
+  rclcpp::node_interfaces::NodeTimersInterface::SharedPtr node_timers_;
+  rclcpp::node_interfaces::NodeTopicsInterface::SharedPtr node_topics_;
+  rclcpp::node_interfaces::NodeClockInterface::SharedPtr node_clock_;
+
   ros2_knowledge_graph_msgs::msg::Graph::UniquePtr graph_;
   std::string graph_id_;
   rclcpp::Time last_ts_;
@@ -87,29 +100,24 @@ protected:
 private:
   rclcpp::Publisher<ros2_knowledge_graph_msgs::msg::GraphUpdate>::SharedPtr update_pub_;
   rclcpp::Subscription<ros2_knowledge_graph_msgs::msg::GraphUpdate>::SharedPtr update_sub_;
+  rclcpp::Publisher<tf2_msgs::msg::TFMessage>::SharedPtr tf_publisher_;
+  rclcpp::Publisher<tf2_msgs::msg::TFMessage>::SharedPtr static_tf_publisher_;
 
   rclcpp::TimerBase::SharedPtr reqsync_timer_;
   rclcpp::Time start_time_;
 
   tf2::BufferCore buffer_;
-  tf2_ros::TransformListener tf_listener_;
-  tf2_ros::TransformBroadcaster tf_broadcaster_;
-  tf2_ros::StaticTransformBroadcaster static_tf_broadcaster_;
-
-  friend class GraphFactory;
+  std::shared_ptr<tf2_ros::TransformListener> tf_listener_;
 };
 
+template<class NT>
 class GraphFactory
 {
 public:
-  static GraphNode * getInstance(rclcpp::Node::SharedPtr provided_node)
+  static GraphNode * getInstance(typename NT::SharedPtr provided_node)
   {
     if (instance_ == nullptr) {
       instance_ = new GraphNode(provided_node);
-    } else if (provided_node != instance_->node_) {
-      RCLCPP_WARN(
-        provided_node->get_logger(), "Using already existing node [%s]",
-        instance_->node_->get_name());
     }
     return instance_;
   }
@@ -118,7 +126,8 @@ private:
   static GraphNode * instance_;
 };
 
-GraphNode * GraphFactory::instance_ = nullptr;
+template<class NT>
+GraphNode * GraphFactory<NT>::instance_ = nullptr;
 
 template<>
 std::vector<ros2_knowledge_graph_msgs::msg::Edge>

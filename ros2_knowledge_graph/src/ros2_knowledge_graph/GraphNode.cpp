@@ -29,6 +29,10 @@
 
 #include "ros2_knowledge_graph/GraphNode.hpp"
 
+#include "rclcpp/rclcpp.hpp"
+#include "rclcpp/create_publisher.hpp"
+
+
 namespace ros2_knowledge_graph
 {
 
@@ -36,26 +40,71 @@ using std::placeholders::_1;
 using namespace std::chrono_literals;
 
 GraphNode::GraphNode(rclcpp::Node::SharedPtr provided_node)
-: node_(provided_node),
-  buffer_(),
-  tf_listener_(buffer_),
-  tf_broadcaster_(node_),
-  static_tf_broadcaster_(node_)
+: GraphNode(
+    provided_node->get_node_base_interface(),
+    provided_node->get_node_logging_interface(),
+    provided_node->get_node_timers_interface(),
+    provided_node->get_node_topics_interface(),
+    provided_node->get_node_clock_interface())
 {
-  graph_ = std::make_unique<ros2_knowledge_graph_msgs::msg::Graph>();
-  graph_id_ = node_->get_name() + std::to_string(node_->now().seconds());
+}
 
-  update_pub_ = node_->create_publisher<ros2_knowledge_graph_msgs::msg::GraphUpdate>(
+GraphNode::GraphNode(rclcpp_lifecycle::LifecycleNode::SharedPtr provided_node)
+:  GraphNode(
+    provided_node->get_node_base_interface(),
+    provided_node->get_node_logging_interface(),
+    provided_node->get_node_timers_interface(),
+    provided_node->get_node_topics_interface(),
+    provided_node->get_node_clock_interface())
+{
+}
+
+
+GraphNode::GraphNode(
+  rclcpp::node_interfaces::NodeBaseInterface::SharedPtr node_base,
+  rclcpp::node_interfaces::NodeLoggingInterface::SharedPtr node_logging,
+  rclcpp::node_interfaces::NodeTimersInterface::SharedPtr node_timers,
+  rclcpp::node_interfaces::NodeTopicsInterface::SharedPtr node_topics,
+  rclcpp::node_interfaces::NodeClockInterface::SharedPtr node_clock)
+: node_base_(node_base),
+  node_logging_(node_logging),
+  node_timers_(node_timers_),
+  node_topics_(node_topics),
+  node_clock_(node_clock)
+{
+  tf_listener_= std::make_shared<tf2_ros::TransformListener>(buffer_);
+
+  graph_ = std::make_unique<ros2_knowledge_graph_msgs::msg::Graph>();
+  graph_id_ = node_base_->get_name() + std::to_string(node_clock_->get_clock()->now().seconds());
+
+  auto qos_100_rel = rclcpp::QoS(1000).reliable();
+  update_pub_  = node_topics_->create_publisher(
+    "graph_update", 
+    rclcpp::create_publisher_factory<
+      ros2_knowledge_graph_msgs::msg::GraphUpdate,
+      std::allocator<void>, rclcpp::Publisher<ros2_knowledge_graph_msgs::msg::GraphUpdate, std::allocator<void>>(
+        rclcpp::PublisherOptionsWithAllocator<std::allocator<void>>()),
+    qos_100_rel);
+
+  /*update_pub_ = node_topics_->create_publisher<ros2_knowledge_graph_msgs::msg::GraphUpdate>(
     "graph_update", rclcpp::QoS(1000).reliable());
-  update_sub_ = node_->create_subscription<ros2_knowledge_graph_msgs::msg::GraphUpdate>(
+  update_sub_ = node_topics_->create_subscription<ros2_knowledge_graph_msgs::msg::GraphUpdate>(
     "graph_update", rclcpp::QoS(100).reliable(),
     std::bind(&GraphNode::update_callback, this, _1));
+  tf_publisher_ = node_topics_->create_publisher<tf2_msgs::msg::TFMessage>(
+    "/tf",rclcpp::QoS(100));
+  static_tf_publisher_ = node_topics_->create_publisher<tf2_msgs::msg::TFMessage>(
+    "/tf_static", rclcpp::QoS(100).transient_local());
+*/
+  last_ts_ = node_clock_->get_clock()->now();
+  start_time_ = node_clock_->get_clock()->now();
 
-  last_ts_ = node_->now();
-  start_time_ = node_->now();
-
-  reqsync_timer_ = node_->create_wall_timer(
-    100ms, std::bind(&GraphNode::reqsync_timer_callback, this));
+  reqsync_timer_ = rclcpp::create_wall_timer(
+    100ms,
+    std::bind(&GraphNode::reqsync_timer_callback, this),
+    nullptr,
+    node_base_.get(),
+    node_timers_.get());
 
   reqsync_timer_callback();
 }
@@ -63,12 +112,12 @@ GraphNode::GraphNode(rclcpp::Node::SharedPtr provided_node)
 void
 GraphNode::reqsync_timer_callback()
 {
-  if ((node_->now() - start_time_).seconds() > 1.0) {
+  if ((node_clock_->get_clock()->now() - start_time_).seconds() > 1.0) {
     reqsync_timer_ = nullptr;
   }
 
   ros2_knowledge_graph_msgs::msg::GraphUpdate hello_msg;
-  hello_msg.stamp = node_->now();
+  hello_msg.stamp = node_clock_->get_clock()->now();
   hello_msg.node_id = graph_id_;
   hello_msg.operation_type = ros2_knowledge_graph_msgs::msg::GraphUpdate::REQSYNC;
   hello_msg.element_type = ros2_knowledge_graph_msgs::msg::GraphUpdate::GRAPH;
@@ -104,7 +153,7 @@ GraphNode::remove_node(const std::string node, bool sync)
   if (removed) {
     if (sync) {
       ros2_knowledge_graph_msgs::msg::GraphUpdate update_msg;
-      update_msg.stamp = node_->now();
+      update_msg.stamp = node_clock_->get_clock()->now();
       update_msg.node_id = graph_id_;
       update_msg.operation_type = ros2_knowledge_graph_msgs::msg::GraphUpdate::REMOVE;
       update_msg.element_type = ros2_knowledge_graph_msgs::msg::GraphUpdate::NODE;
@@ -112,7 +161,7 @@ GraphNode::remove_node(const std::string node, bool sync)
       update_pub_->publish(update_msg);
     }
 
-    last_ts_ = node_->now();
+    last_ts_ = node_clock_->get_clock()->now();
   }
 
   return removed;
@@ -179,7 +228,7 @@ GraphNode::remove_edge(const ros2_knowledge_graph_msgs::msg::Edge & edge, bool s
   if (removed) {
     if (sync) {
       ros2_knowledge_graph_msgs::msg::GraphUpdate update_msg;
-      update_msg.stamp = node_->now();
+      update_msg.stamp = node_clock_->get_clock()->now();
       update_msg.node_id = graph_id_;
       update_msg.operation_type = ros2_knowledge_graph_msgs::msg::GraphUpdate::REMOVE;
       update_msg.element_type = ros2_knowledge_graph_msgs::msg::GraphUpdate::EDGE;
@@ -187,7 +236,7 @@ GraphNode::remove_edge(const ros2_knowledge_graph_msgs::msg::Edge & edge, bool s
       update_pub_->publish(update_msg);
     }
 
-    last_ts_ = node_->now();
+    last_ts_ = node_clock_->get_clock()->now();
   }
 
   return removed;
@@ -247,7 +296,7 @@ GraphNode::update_node(const ros2_knowledge_graph_msgs::msg::Node & node, bool s
 
   if (sync) {
     ros2_knowledge_graph_msgs::msg::GraphUpdate update_msg;
-    update_msg.stamp = node_->now();
+    update_msg.stamp = node_clock_->get_clock()->now();
     update_msg.node_id = graph_id_;
     update_msg.operation_type = ros2_knowledge_graph_msgs::msg::GraphUpdate::UPDATE;
     update_msg.element_type = ros2_knowledge_graph_msgs::msg::GraphUpdate::NODE;
@@ -255,7 +304,7 @@ GraphNode::update_node(const ros2_knowledge_graph_msgs::msg::Node & node, bool s
     update_pub_->publish(update_msg);
   }
 
-  last_ts_ = node_->now();
+  last_ts_ = node_clock_->get_clock()->now();
 }
 
 bool
@@ -263,14 +312,14 @@ GraphNode::update_edge(const ros2_knowledge_graph_msgs::msg::Edge & edge, bool s
 {
   if (!exist_node(edge.source_node_id)) {
     RCLCPP_ERROR_STREAM(
-      node_->get_logger(),
+      node_logging_->get_logger(),
       "Node source [" << edge.source_node_id << "] doesn't exist adding edge");
     return false;
   }
 
   if (!exist_node(edge.target_node_id)) {
     RCLCPP_ERROR_STREAM(
-      node_->get_logger(),
+     node_logging_->get_logger(),
       "Node target [" << edge.target_node_id << "] doesn't exist adding edge");
     return false;
   }
@@ -304,7 +353,7 @@ GraphNode::update_edge(const ros2_knowledge_graph_msgs::msg::Edge & edge, bool s
 
     if (sync) {
       ros2_knowledge_graph_msgs::msg::GraphUpdate update_msg;
-      update_msg.stamp = node_->now();
+      update_msg.stamp = node_clock_->get_clock()->now();
       update_msg.node_id = graph_id_;
       update_msg.operation_type = ros2_knowledge_graph_msgs::msg::GraphUpdate::UPDATE;
       update_msg.element_type = ros2_knowledge_graph_msgs::msg::GraphUpdate::EDGE;
@@ -312,14 +361,14 @@ GraphNode::update_edge(const ros2_knowledge_graph_msgs::msg::Edge & edge, bool s
       update_pub_->publish(update_msg);
     }
 
-    last_ts_ = node_->now();
+    last_ts_ = node_clock_->get_clock()->now();
   } else {
     if (mod_edge.content.type != ros2_knowledge_graph_msgs::msg::Content::STATICTF &&
       mod_edge.content.type != ros2_knowledge_graph_msgs::msg::Content::TF)
     {
       if (sync) {
         ros2_knowledge_graph_msgs::msg::GraphUpdate update_msg;
-        update_msg.stamp = node_->now();
+        update_msg.stamp = node_clock_->get_clock()->now();
         update_msg.node_id = graph_id_;
         update_msg.operation_type = ros2_knowledge_graph_msgs::msg::GraphUpdate::UPDATE;
         update_msg.element_type = ros2_knowledge_graph_msgs::msg::GraphUpdate::EDGE;
@@ -327,7 +376,7 @@ GraphNode::update_edge(const ros2_knowledge_graph_msgs::msg::Edge & edge, bool s
         update_pub_->publish(update_msg);
       }
 
-      last_ts_ = node_->now();
+      last_ts_ = node_clock_->get_clock()->now();
     } else {
       mod_edge.content.tf_value.header.frame_id = edge.source_node_id;
       mod_edge.content.tf_value.child_frame_id = edge.target_node_id;
@@ -355,7 +404,7 @@ GraphNode::update_callback(ros2_knowledge_graph_msgs::msg::GraphUpdate::UniquePt
     operation != ros2_knowledge_graph_msgs::msg::GraphUpdate::SYNC)
   {
     RCLCPP_ERROR(
-      node_->get_logger(), "UNORDERER UPDATE [%zd] %lf > %lf",
+     node_logging_->get_logger(), "UNORDERER UPDATE [%zd] %lf > %lf",
       operation,
       last_ts_.seconds(), rclcpp::Time(ts).seconds());
   }
@@ -416,9 +465,9 @@ GraphNode::update_callback(ros2_knowledge_graph_msgs::msg::GraphUpdate::UniquePt
 
           case ros2_knowledge_graph_msgs::msg::GraphUpdate::REQSYNC:
 
-            if (msg->node_id != node_->get_name()) {
+            if (msg->node_id != node_base_->get_name()) {
               ros2_knowledge_graph_msgs::msg::GraphUpdate out_msg;
-              out_msg.stamp = node_->now();
+              out_msg.stamp = node_clock_->get_clock()->now();
               out_msg.node_id = graph_id_;
               out_msg.target_node = msg->node_id;
               out_msg.operation_type = ros2_knowledge_graph_msgs::msg::GraphUpdate::SYNC;
@@ -437,11 +486,15 @@ void
 GraphNode::publish_tf(const ros2_knowledge_graph_msgs::msg::Content & content)
 {
   if (content.type == ros2_knowledge_graph_msgs::msg::Content::TF) {
-    tf_broadcaster_.sendTransform(content.tf_value);
+    tf2_msgs::msg::TFMessage msg;
+    msg.transforms.push_back(content.tf_value);
+    tf_publisher_->publish(msg);
   } else if (content.type == ros2_knowledge_graph_msgs::msg::Content::STATICTF) {
-    static_tf_broadcaster_.sendTransform(content.tf_value);
+    tf2_msgs::msg::TFMessage msg;
+    msg.transforms.push_back(content.tf_value);
+    static_tf_publisher_->publish(msg);
   } else {
-    RCLCPP_ERROR(node_->get_logger(), "Trying to publish tf with a non-tf edge");
+    RCLCPP_ERROR(node_logging_->get_logger(), "Trying to publish tf with a non-tf edge");
   }
 }
 
