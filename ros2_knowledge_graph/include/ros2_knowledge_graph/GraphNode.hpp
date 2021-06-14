@@ -83,8 +83,6 @@ public:
 protected:
   rclcpp::node_interfaces::NodeBaseInterface::SharedPtr node_base_;
   rclcpp::node_interfaces::NodeLoggingInterface::SharedPtr node_logging_;
-  rclcpp::node_interfaces::NodeTimersInterface::SharedPtr node_timers_;
-  rclcpp::node_interfaces::NodeTopicsInterface::SharedPtr node_topics_;
   rclcpp::node_interfaces::NodeClockInterface::SharedPtr node_clock_;
 
   ros2_knowledge_graph_msgs::msg::Graph::UniquePtr graph_;
@@ -98,23 +96,23 @@ protected:
   void reqsync_timer_callback();
 
 private:
-  rclcpp::Publisher<ros2_knowledge_graph_msgs::msg::GraphUpdate>::SharedPtr update_pub_;
+  rclcpp::PublisherBase::SharedPtr update_pub_;
+  rclcpp::PublisherBase::SharedPtr tf_publisher_;
+  rclcpp::PublisherBase::SharedPtr static_tf_publisher_;
+
   rclcpp::Subscription<ros2_knowledge_graph_msgs::msg::GraphUpdate>::SharedPtr update_sub_;
-  rclcpp::Publisher<tf2_msgs::msg::TFMessage>::SharedPtr tf_publisher_;
-  rclcpp::Publisher<tf2_msgs::msg::TFMessage>::SharedPtr static_tf_publisher_;
 
   rclcpp::TimerBase::SharedPtr reqsync_timer_;
   rclcpp::Time start_time_;
 
   tf2::BufferCore buffer_;
-  std::shared_ptr<tf2_ros::TransformListener> tf_listener_;
+  tf2_ros::TransformListener tf_listener_;
 };
 
-template<class NT>
 class GraphFactory
 {
 public:
-  static GraphNode * getInstance(typename NT::SharedPtr provided_node)
+  static GraphNode * getInstance(rclcpp::Node::SharedPtr provided_node)
   {
     if (instance_ == nullptr) {
       instance_ = new GraphNode(provided_node);
@@ -122,12 +120,25 @@ public:
     return instance_;
   }
 
+  static GraphNode * getInstance(rclcpp_lifecycle::LifecycleNode::SharedPtr provided_node)
+  {
+    if (instance_ == nullptr) {
+      instance_ = new GraphNode(provided_node);
+    }
+    return instance_;
+  }
+
+  static void cleanUp()
+  {
+    delete instance_;
+    instance_ = nullptr;
+  }
+
 private:
   static GraphNode * instance_;
 };
 
-template<class NT>
-GraphNode * GraphFactory<NT>::instance_ = nullptr;
+GraphNode * GraphFactory::instance_ = nullptr;
 
 template<>
 std::vector<ros2_knowledge_graph_msgs::msg::Edge>
