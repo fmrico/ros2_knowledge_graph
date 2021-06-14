@@ -40,14 +40,6 @@ public:
   explicit GraphNode(rclcpp::Node::SharedPtr provided_node);
   explicit GraphNode(rclcpp_lifecycle::LifecycleNode::SharedPtr provided_node);
 
-  GraphNode(
-    rclcpp::node_interfaces::NodeBaseInterface::SharedPtr node_base,
-    rclcpp::node_interfaces::NodeLoggingInterface::SharedPtr node_logging,
-    rclcpp::node_interfaces::NodeTimersInterface::SharedPtr node_timers,
-    rclcpp::node_interfaces::NodeTopicsInterface::SharedPtr node_topics,
-    rclcpp::node_interfaces::NodeClockInterface::SharedPtr node_clock);
-
-
   bool remove_node(const std::string node, bool sync = true);
   bool exist_node(const std::string node);
   std::optional<ros2_knowledge_graph_msgs::msg::Node> get_node(const std::string node);
