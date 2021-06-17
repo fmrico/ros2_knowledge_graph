@@ -15,18 +15,18 @@ set(dependencies
 
 include_directories(include)
 
-add_library(terminal SHARED
+add_library(graph_terminal SHARED
   src/ros2_knowledge_graph_terminal/Terminal.cpp)
-ament_target_dependencies(terminal ${dependencies})
-target_compile_definitions(terminal PUBLIC "PLUGINLIB__DISABLE_BOOST_FUNCTIONS")
+ament_target_dependencies(graph_terminal ${dependencies})
+target_compile_definitions(graph_terminal PUBLIC "PLUGINLIB__DISABLE_BOOST_FUNCTIONS")
 
 add_executable(${PROJECT_NAME}
   src/terminal_node.cpp)
 ament_target_dependencies(${PROJECT_NAME} ${dependencies})
-target_link_libraries(${PROJECT_NAME} terminal readline)
+target_link_libraries(${PROJECT_NAME} graph_terminal readline)
 
 install(TARGETS
-  terminal
+graph_terminal
   ${PROJECT_NAME}
   ARCHIVE DESTINATION lib
   LIBRARY DESTINATION lib
