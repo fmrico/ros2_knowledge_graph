@@ -46,6 +46,14 @@ GraphNode::GraphNode(rclcpp::Node::SharedPtr provided_node)
   buffer_(),
   tf_listener_(buffer_)
 {
+  try {
+    provided_node->declare_parameter<std::string>("system_name", "no-name");
+  } catch (rclcpp::exceptions::ParameterAlreadyDeclaredException e) {
+    RCLCPP_WARN(provided_node->get_logger(), "Parameter system_name already declared");
+  }
+
+  provided_node->get_parameter("system_name", system_name_);
+
   graph_ = std::make_unique<ros2_knowledge_graph_msgs::msg::Graph>();
   graph_id_ = provided_node->get_name() + std::to_string(provided_node->now().nanoseconds());
 
@@ -279,7 +287,15 @@ GraphNode::get_num_nodes() const
 }
 
 void
-GraphNode::update_node(const ros2_knowledge_graph_msgs::msg::Node & node, bool sync)
+GraphNode::update_node(const ros2_knowledge_graph_msgs::msg::Node & node)
+{
+  ros2_knowledge_graph_msgs::msg::Node node_aux = node;
+  node_aux.signature = get_signature();
+  update_node_internal(node_aux, true);
+}
+
+void
+GraphNode::update_node_internal(const ros2_knowledge_graph_msgs::msg::Node & node, bool sync)
 {
   bool found = false;
   auto it = graph_->nodes.begin();
@@ -310,7 +326,21 @@ GraphNode::update_node(const ros2_knowledge_graph_msgs::msg::Node & node, bool s
 }
 
 bool
-GraphNode::update_edge(const ros2_knowledge_graph_msgs::msg::Edge & edge, bool sync)
+GraphNode::update_edge(const ros2_knowledge_graph_msgs::msg::Edge & edge)
+{
+  ros2_knowledge_graph_msgs::msg::Edge edge_aux = edge;
+
+  if (edge.content.type != ros2_knowledge_graph_msgs::msg::Content::TF &&
+    edge.content.type != ros2_knowledge_graph_msgs::msg::Content::STATICTF)
+  {
+    edge_aux.signature = get_signature();
+  }
+
+  return update_edge_internal(edge_aux, true);
+}
+
+bool
+GraphNode::update_edge_internal(const ros2_knowledge_graph_msgs::msg::Edge & edge, bool sync)
 {
   if (!exist_node(edge.source_node_id)) {
     RCLCPP_ERROR_STREAM(
@@ -423,7 +453,7 @@ GraphNode::update_callback(ros2_knowledge_graph_msgs::msg::GraphUpdate::UniquePt
         switch (operation) {
           case ros2_knowledge_graph_msgs::msg::GraphUpdate::UPDATE:
             {
-              update_node(msg->node, false);
+              update_node_internal(msg->node, false);
               break;
             }
 
@@ -444,7 +474,7 @@ GraphNode::update_callback(ros2_knowledge_graph_msgs::msg::GraphUpdate::UniquePt
 
         switch (operation) {
           case ros2_knowledge_graph_msgs::msg::GraphUpdate::UPDATE:
-            update_edge(msg->edge, false);
+            update_edge_internal(msg->edge, false);
             break;
 
           case ros2_knowledge_graph_msgs::msg::GraphUpdate::REMOVE:
@@ -542,6 +572,18 @@ GraphNode::get_edges_from_node_by_data(
       }
     }
   }
+  return ret;
+}
+
+ros2_knowledge_graph_msgs::msg::Signature
+GraphNode::get_signature()
+{
+  ros2_knowledge_graph_msgs::msg::Signature ret;
+
+  ret.node_name = node_base_->get_name();
+  ret.system_name = system_name_;
+  ret.stamp = node_clock_->get_clock()->now();
+
   return ret;
 }
 

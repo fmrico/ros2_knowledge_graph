@@ -61,7 +61,10 @@ TEST(ros2_knowledge_graphnode, graph_operations)
   ASSERT_FALSE(graph_node.get_graph().nodes.empty());
   ASSERT_EQ(graph_node.get_graph().nodes.size(), 1u);
   ASSERT_EQ(graph_node.get_nodes().size(), 1u);
-  ASSERT_EQ(graph_node.get_nodes()[0], node_1);
+  ASSERT_EQ(graph_node.get_nodes()[0].node_class, node_1.node_class);
+  ASSERT_EQ(graph_node.get_nodes()[0].node_name, node_1.node_name);
+  ASSERT_EQ(graph_node.get_nodes()[0].properties, node_1.properties);
+  ASSERT_NE(graph_node.get_nodes()[0].signature, node_1.signature);
   ASSERT_EQ(graph_node.get_node_names().size(), 1u);
   ASSERT_EQ(graph_node.get_node_names()[0], "r2d2");
 
@@ -706,7 +709,9 @@ TEST(ros2_knowledge_graphnode, lc_graph_operations)
   ASSERT_FALSE(graph_node.get_graph().nodes.empty());
   ASSERT_EQ(graph_node.get_graph().nodes.size(), 1u);
   ASSERT_EQ(graph_node.get_nodes().size(), 1u);
-  ASSERT_EQ(graph_node.get_nodes()[0], node_1);
+  ASSERT_EQ(graph_node.get_nodes()[0].node_class, node_1.node_class);
+  ASSERT_EQ(graph_node.get_nodes()[0].node_name, node_1.node_name);
+  ASSERT_EQ(graph_node.get_nodes()[0].properties, node_1.properties);
   ASSERT_EQ(graph_node.get_node_names().size(), 1u);
   ASSERT_EQ(graph_node.get_node_names()[0], "r2d2");
 

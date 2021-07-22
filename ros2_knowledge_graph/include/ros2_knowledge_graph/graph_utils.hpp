@@ -28,6 +28,7 @@
 #include "geometry_msgs/msg/pose_stamped.hpp"
 #include "geometry_msgs/msg/transform_stamped.hpp"
 
+#include "rclcpp/rclcpp.hpp"
 
 namespace ros2_knowledge_graph
 {
@@ -625,6 +626,9 @@ to_string(const ros2_knowledge_graph_msgs::msg::Node & node)
     ret = ret + "\n\t" + prop.key + ": [" + to_string(prop.value) + "]";
   }
 
+  ret = ret + "||" + node.signature.node_name + "|" +
+    node.signature.system_name + "|" +
+    std::to_string(rclcpp::Time(node.signature.stamp).seconds()) + "||";
   return ret;
 }
 
@@ -635,9 +639,28 @@ to_string(const ros2_knowledge_graph_msgs::msg::Edge & edge)
   ret = ret + edge.source_node_id + " -> " + edge.target_node_id +
     " [" + to_string(edge.content.type) + "]" + "{" + to_string(edge.content) + "}";
 
+  ret = ret + "||" + edge.signature.node_name + "|" +
+    edge.signature.system_name + "|" +
+    std::to_string(rclcpp::Time(edge.signature.stamp).seconds()) + "||";
+
   return ret;
 }
 
+std::string
+to_string(const ros2_knowledge_graph_msgs::msg::Graph & graph)
+{
+  std::string ret;
+
+  for (const auto & node : graph.nodes) {
+    ret = ret + to_string(node) + "\n";
+  }
+
+  for (const auto & edge : graph.edges) {
+    ret = ret + to_string(edge) + "\n";
+  }
+
+  return ret;
+}
 
 }  // namespace ros2_knowledge_graph
 

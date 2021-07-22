@@ -18,3 +18,5 @@ string removed_node
 ros2_knowledge_graph_msgs/Node node
 ros2_knowledge_graph_msgs/Edge edge
 ros2_knowledge_graph_msgs/Graph graph
+
+ros2_knowledge_graph_msgs/Signature signature

@@ -27,6 +27,7 @@
 #include "ros2_knowledge_graph_msgs/msg/graph.hpp"
 #include "ros2_knowledge_graph_msgs/msg/node.hpp"
 #include "ros2_knowledge_graph_msgs/msg/edge.hpp"
+#include "ros2_knowledge_graph_msgs/msg/signature.hpp"
 
 #include "rclcpp/rclcpp.hpp"
 #include "rclcpp_lifecycle/lifecycle_node.hpp"
@@ -69,8 +70,8 @@ public:
   size_t get_num_edges() const;
   size_t get_num_nodes() const;
 
-  void update_node(const ros2_knowledge_graph_msgs::msg::Node & node, bool sync = true);
-  bool update_edge(const ros2_knowledge_graph_msgs::msg::Edge & edge, bool sync = true);
+  void update_node(const ros2_knowledge_graph_msgs::msg::Node & node);
+  bool update_edge(const ros2_knowledge_graph_msgs::msg::Edge & edge);
 
 protected:
   rclcpp::node_interfaces::NodeBaseInterface::SharedPtr node_base_;
@@ -87,6 +88,10 @@ protected:
   void update_callback(ros2_knowledge_graph_msgs::msg::GraphUpdate::UniquePtr msg);
   void reqsync_timer_callback();
 
+  void update_node_internal(const ros2_knowledge_graph_msgs::msg::Node & node, bool sync = true);
+  bool update_edge_internal(const ros2_knowledge_graph_msgs::msg::Edge & edge, bool sync = true);
+  ros2_knowledge_graph_msgs::msg::Signature get_signature();
+
 private:
   rclcpp::PublisherBase::SharedPtr update_pub_;
   rclcpp::PublisherBase::SharedPtr tf_publisher_;
@@ -99,6 +104,8 @@ private:
 
   tf2::BufferCore buffer_;
   tf2_ros::TransformListener tf_listener_;
+
+  std::string system_name_;
 };
 
 class GraphFactory

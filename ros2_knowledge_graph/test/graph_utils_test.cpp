@@ -475,7 +475,8 @@ TEST(graph_utils, string)
   node.properties.push_back(prop);
 
   ASSERT_EQ(
-    ros2_knowledge_graph::to_string(node), "r2d2 (robot)\n\towner: [Anakin Skywalker]");
+    ros2_knowledge_graph::to_string(node),
+    "r2d2 (robot)\n\towner: [Anakin Skywalker]||||0.000000||");
 
   ros2_knowledge_graph_msgs::msg::Edge edge;
   edge.source_node_id = "r2d2";
@@ -483,7 +484,7 @@ TEST(graph_utils, string)
   edge.content.type = ros2_knowledge_graph_msgs::msg::Content::INT;
   edge.content.int_value = 42;
   ASSERT_EQ(
-    ros2_knowledge_graph::to_string(edge), "r2d2 -> paco [int]{42}");
+    ros2_knowledge_graph::to_string(edge), "r2d2 -> paco [int]{42}||||0.000000||");
 }
 
 int main(int argc, char ** argv)
