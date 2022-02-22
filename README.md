@@ -55,4 +55,4 @@ The complete API of a `ros2_knowledge_graph::GraphNode` is at  [ros2_knowledge_g
 
 I use [Pluginlib](https://github.com/ros/pluginlib/tree/eloquent) to add special funtionality to nodes and edges depending on its type. Check [Plugins](https://github.com/fmrico/ros2_knowledge_graph/tree/master/ros2_knowledge_graph_plugins) for an example. 
 
-Have fun!!!
+Have fun!!
